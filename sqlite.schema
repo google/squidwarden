@@ -1,0 +1,53 @@
+CREATE TABLE sources(
+       source_id TEXT NOT NULL,
+       source TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(source_id)
+);
+
+CREATE TABLE groups(
+       group_id TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(group_id)
+);
+
+CREATE TABLE members(
+       source_id TEXT NOT NULL,
+       group_id TEXT NOT NULL,
+       PRIMARY KEY(source_id, group_id),
+       FOREIGN KEY(group_id) REFERENCES groups(group_id),
+       FOREIGN KEY(source_id) REFERENCES sources(source_id)
+);
+
+CREATE TABLE acls(
+       acl_id TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(acl_id)
+);
+
+CREATE TABLE aclrules(
+       acl_id TEXT NOT NULL,
+       rule_id TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(acl_id, rule_id),
+       FOREIGN KEY(rule_id) REFERENCES rules(rule_id),
+       FOREIGN KEY(acl_id) REFERENCES acls(acl_id)
+);
+
+CREATE TABLE rules(
+       rule_id TEXT NOT NULL,
+       type TEXT NOT NULL,
+       value TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(rule_id),
+       UNIQUE(type,value)
+);
+
+CREATE TABLE groupaccess(
+       group_id TEXT NOT NULL,
+       acl_id TEXT NOT NULL,
+       comment TEXT,
+       PRIMARY KEY(group_id,acl_id),
+       FOREIGN KEY(group_id) REFERENCES groups(group_id),
+       FOREIGN KEY(acl_id) REFERENCES acls(acl_id)
+);
