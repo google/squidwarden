@@ -1,0 +1,105 @@
+<html>
+  <head>
+    <title>Squidwarden</title>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        $("table.latest button").click(function(btn){
+          $.post("/ajax/allow", {})
+      .done(function(){alert("success");})
+      .fail(function(){alert("fail");});
+        });
+      });
+    </script>
+  </head>
+  <style>
+    table.latest tbody tr:nth-child(odd) {
+      background: #ddd;
+    }
+    table.latest tbody tr:hover {
+      background: #88f;
+    }
+    ul.buttons {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    ul.buttons li {
+      display: inline-block;
+      width: 4em;
+      text-align: center;
+    position: relative;
+    display: inline-block;
+    }
+    .tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 1;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid;
+    text-align: center;
+    border-radius: 6px;
+    padding: 3px;
+    left: -0%;
+    top: +110%;
+    }
+    ul.buttons li:hover .tooltip {
+      visibility: visible;
+    }
+    ul.buttons li:hover button {
+      background-color: #aaa;
+    }
+  </style>
+  <body>
+    <h1>Squidwarden</h1>
+    <h2>Latest blocked URLs</h2>
+    <button>Pause scroll</button>
+    <table class="latest">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Client</th>
+          <th>Method</th>
+          <th>Host</th>
+          <th>Path</th>
+          <th>Allow</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2016-01-01 00:11:33</td>
+          <td>192.168.0.123</td>
+          <td>GET</td>
+          <td>blog.habets.se</td>
+          <td>/2016/01/</td>
+          <td>
+            <ul class="buttons">
+              <li><button>Domain</button><span class="tooltip">habets.se</span></li>
+              <li><button>Host</button><span class="tooltip">blog.habets.se</span></li>
+              <li><button>Path</button><span class="tooltip">blog.habets.se/2016/01/</span></li>
+              <li><button>Custom</button></li>
+            </ul>
+          </td>
+          <td class="messages"></td>
+        </tr>
+        <tr>
+          <td>2016-01-01 00:11:22</td>
+          <td>192.168.0.123</td>
+          <td>CONNECT</td>
+          <td>blog.habets.se:443</td>
+          <td></td>
+          <td>
+            <ul class="buttons">
+              <li><button>Domain</button><span class="tooltip">habets.se</span></li>
+              <li><button>Host</button><span class="tooltip">blog.habets.se</span></li>
+              <li></li>
+              <li><button>Custom</button></li>
+            </ul>
+          </td>
+          <td class="messages"></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>
