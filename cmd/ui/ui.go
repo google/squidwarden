@@ -57,6 +57,12 @@ type rule struct {
 }
 
 func host2domain(h string) string {
+	if net.ParseIP(h) != nil {
+		return h
+	}
+	if hst, _, err := net.SplitHostPort(h); err == nil && net.ParseIP(hst) != nil {
+		return hst
+	}
 	tld := 1
 	for _, d := range []string{
 		".pp.se",
@@ -70,9 +76,9 @@ func host2domain(h string) string {
 	}
 	s := strings.Split(h, ".")
 	if len(s) <= tld {
-		return h
+		return "." + h
 	}
-	return strings.Join(s[len(s)-tld-1:], ".")
+	return "." + strings.Join(s[len(s)-tld-1:], ".")
 }
 
 func rootHandler(r *http.Request) (template.HTML, error) {
@@ -298,7 +304,7 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 			Time:   time.Unix(int64(ts), int64(1e9*(ts-math.Trunc(ts)))).UTC().Format(saneTime),
 			Client: s[2],
 			Method: s[4],
-			Domain: "." + host2domain(host),
+			Domain: host2domain(host),
 			Host:   host,
 			Path:   p,
 			URL:    u,
