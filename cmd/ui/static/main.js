@@ -14,30 +14,16 @@ function refreshTail() {
 	    tr = document.createElement("tr");
 
 	    td = document.createElement("td");
+	    td.classList = ["min"];
 	    td.innerText = data[i].Time
 	    tr.appendChild(td);
 
-	    td = document.createElement("td");
-	    td.innerText = data[i].Client
-	    tr.appendChild(td);
-
-	    td = document.createElement("td");
-	    td.innerText = data[i].Method
-	    tr.appendChild(td);
-
-	    td = document.createElement("td");
-	    td.innerText = data[i].Host
-	    tr.appendChild(td);
-
-	    td = document.createElement("td");
-	    td.innerText = data[i].Path
-	    td.classList = ["latest-path"]
-	    tr.appendChild(td);
 
 	    var li;
 	    var button;
 	    var span;
 	    td = document.createElement("td");
+	    td.classList = ["min nostripe"];
 	    ul = document.createElement("ul");
 	    ul.classList = ["buttons"];
 	    type = (data[i].Method == "CONNECT") ? "https-domain" : "domain";
@@ -46,8 +32,27 @@ function refreshTail() {
 	    if (data[i].Method != "CONNECT") {
 		ul.appendChild(createButtonLI("Path", {}, data[i].URL));
 	    }
-
 	    td.appendChild(ul);
+	    tr.appendChild(td);
+
+	    td = document.createElement("td");
+	    td.classList = ["min"];
+	    td.innerText = data[i].Client
+	    tr.appendChild(td);
+
+	    td = document.createElement("td");
+	    td.classList = ["min"];
+	    td.innerText = data[i].Method
+	    tr.appendChild(td);
+
+	    td = document.createElement("td");
+	    td.classList = ["min"];
+	    td.innerText = data[i].Host
+	    tr.appendChild(td);
+
+	    td = document.createElement("td");
+	    td.innerText = data[i].Path
+	    td.classList = ["latest-path max"]
 	    tr.appendChild(td);
 
 	    l.append(tr);

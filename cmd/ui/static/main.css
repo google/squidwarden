@@ -2,12 +2,6 @@ table#latest {
     width: 95%;
     display: table;
 }
-table.latest tbody tr:nth-child(odd) {
-    background: #ddd;
-}
-table.latest tbody tr:hover {
-    background: #88f;
-}
 table.latest tbody td.messages {
     background: #fff;
 }
@@ -25,6 +19,7 @@ ul.buttons li {
 }
 .tooltip {
     visibility: hidden;
+    white-space: normal;
     position: absolute;
     z-index: 1;
     background-color: #fff;
@@ -33,7 +28,7 @@ ul.buttons li {
     text-align: center;
     border-radius: 6px;
     padding: 3px;
-    left: -100%;
+    left: -0;
     top: +110%;
 }
 ul.buttons li:hover .tooltip {
@@ -43,6 +38,6 @@ ul.buttons li:hover button {
     background-color: #aaa;
 }
 td.latest-path {
-    max-width: 10em;
+/*    max-width: 10em; */
     overflow: auto;
 }

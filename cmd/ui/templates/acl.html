@@ -1,5 +1,6 @@
 {{$root := .}}
 <script type="text/javascript" src="/static/acl.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/acl.css" media="screen"/>
 <ul>
   <select id="acl-selection">
     <option value="">[no ACL selected]</option>
@@ -10,7 +11,7 @@
 </ul>
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
-<table>
+<table id="acl-rules" class="standard">
   <thead>
     <tr>
       <th>Rule ID</th>
@@ -23,11 +24,11 @@
   <tbody>
     {{range .Rules}}
     <tr>
-      <td class="fixed">{{.RuleID}}</td>
-      <td>{{.Type}}</td>
-      <td>{{.Value}}</td>
-      <td>{{.Action}}</td>
-      <td>{{.Comment}}</td>
+      <td class="min fixed uuid">{{.RuleID}}</td>
+      <td class="min">{{.Type}}</td>
+      <td class="max">{{.Value}}</td>
+      <td class="min">{{.Action}}</td>
+      <td class="max">{{.Comment}}</td>
     </tr>
     {{end}}
   </tbody>

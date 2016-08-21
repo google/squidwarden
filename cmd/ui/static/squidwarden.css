@@ -21,3 +21,23 @@ body {
     padding-left: 10em;
     font-size: 12pt;
 }
+table.standard tbody tr:nth-child(odd) {
+    background: #ddd;
+}
+table.standard tbody tr:hover {
+    background: #88f;
+}
+table.standard tbody td.nobg {
+    background: #fff;
+}
+td.uuid {
+    white-space: nowrap;
+}
+td.min {
+    padding-left: 5px;
+    padding-right: 5px;
+    white-space: nowrap;
+}
+td.max {
+    width: 100%;
+}
