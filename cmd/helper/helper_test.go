@@ -22,7 +22,7 @@ import (
 func TestDecisions(t *testing.T) {
 	cfg := Config{
 		Rules: map[string]Rule{
-			"test": &DomainRule{".habets.se"},
+			"test": &DomainRule{".habets.se", "allow"},
 		},
 		Sources: map[string][]string{
 			"127.0.0.0/8": []string{"test"},
@@ -40,23 +40,23 @@ func TestDecisions(t *testing.T) {
 	for _, test := range []struct {
 		proto, src, method, uri string
 		err                     bool
-		want                    string
+		want                    bool
 	}{
 		// domain
-		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, "OK"},
-		{"HTTP", "128.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, "ERR"},
-		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.co.uk/", false, "ERR"},
+		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, true},
+		{"HTTP", "128.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, false},
+		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.co.uk/", false, false},
 
 		// regex
-		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/url?foo=bar", false, "OK"},
-		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/", false, "ERR"},
+		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/url?foo=bar", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/", false, false},
 
 		// https-domain
-		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:443", false, "OK"},
-		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:8443", false, "ERR"},
-		{"NONE", "127.0.0.1", "CONNECT", "www.habets.co.uk:443", false, "ERR"},
+		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:8443", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "www.habets.co.uk:443", false, false},
 	} {
-		v, err := decide(&cfg, test.proto, test.src, test.method, test.uri)
+		v, _, err := decide(&cfg, test.proto, test.src, test.method, test.uri)
 		if err != nil != test.err {
 			t.Fatalf("Want err %v, got %v", test.err, err)
 		}
