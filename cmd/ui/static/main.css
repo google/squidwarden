@@ -1,0 +1,44 @@
+table.latest tbody tr:nth-child(odd) {
+    background: #ddd;
+}
+table.latest tbody tr:hover {
+    background: #88f;
+}
+table.latest tbody td.messages {
+    background: #fff;
+}
+ul.buttons {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+ul.buttons li {
+    display: inline-block;
+    width: 4em;
+    text-align: center;
+    position: relative;
+    display: inline-block;
+}
+.tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 1;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid;
+    text-align: center;
+    border-radius: 6px;
+    padding: 3px;
+    left: -0%;
+    top: +110%;
+}
+ul.buttons li:hover .tooltip {
+    visibility: visible;
+}
+ul.buttons li:hover button {
+    background-color: #aaa;
+}
+td.latest-path {
+    max-width: 10em;
+    overflow: scroll;
+}
