@@ -1,29 +1,22 @@
-<html>
-  <head>
-    <title>Squidwarden</title>
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
-    <script type="text/javascript" src="/static/main.js"></script>
-    <link rel="stylesheet" type="text/css" href="/static/main.css" media="screen"/>
-  </head>
-  <body>
-    <h1>Squidwarden</h1>
-    <h2>Latest blocked URLs</h2>
-    <button>Pause scroll</button>
-    <button id="refresh-tail">Refresh</button>
-    <div id="error-messages"></div>
-    <p class="messages" id="test"></p>
-    <table id="latest" class="latest">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Client</th>
-          <th>Method</th>
-          <th>Host</th>
-          <th>Path</th>
-          <th>Allow</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </body>
-</html>
+<script type="text/javascript" src="/static/main.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/main.css" media="screen"/>
+
+<h2>Latest blocked URLs</h2>
+<button>Pause scroll</button>
+<button id="refresh-tail">Refresh</button>
+<div id="error-messages"></div>
+<p class="messages" id="test"></p>
+<table id="latest" class="latest">
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Client</th>
+      <th>Method</th>
+      <th>Host</th>
+      <th>Path</th>
+      <th>Allow</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+

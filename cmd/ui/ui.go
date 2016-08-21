@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -40,6 +42,20 @@ var (
 	db *sql.DB
 )
 
+type aclID string
+type acl struct {
+	ACLID   aclID
+	Comment string
+}
+type ruleID string
+type rule struct {
+	RuleID  ruleID
+	Type    string
+	Value   string
+	Action  string
+	Comment string
+}
+
 func host2domain(h string) string {
 	tld := 1
 	for _, d := range []string{
@@ -59,11 +75,13 @@ func host2domain(h string) string {
 	return strings.Join(s[len(s)-tld-1:], ".")
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
+func rootHandler(r *http.Request) (template.HTML, error) {
 	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "main.html")))
-	if err := tmpl.Execute(w, nil); err != nil {
-		log.Fatalf("Template execute fail: %v", err)
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
 	}
+	return template.HTML(buf.String()), nil
 }
 
 func openDB() {
@@ -84,7 +102,6 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing parameters", http.StatusBadRequest)
 		return
 	}
-	openDB()
 	// TODO: look up 'misc'.
 	aclID := "db4c935f-fc5b-4868-ab32-c80459159c3e"
 	if err := func() error {
@@ -117,6 +134,95 @@ func reverse(s []string) []string {
 		o[i], o[j] = s[j], s[i]
 	}
 	return o
+}
+
+func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tmpl := template.Must(template.ParseFiles(path.Join(*templates, "page.html")))
+		h, err := f(r)
+		if err != nil {
+			log.Printf("Error in HTTP handler: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if err := tmpl.Execute(w, struct{ Content template.HTML }{Content: h}); err != nil {
+			log.Printf("Error in main handler: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func aclHandler(r *http.Request) (template.HTML, error) {
+	var acls []acl
+	{
+		rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
+		if err != nil {
+			return "", err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var s string
+			var c sql.NullString
+			if err := rows.Scan(&s, &c); err != nil {
+				return "", err
+			}
+			acls = append(acls, acl{
+				ACLID:   aclID(s),
+				Comment: c.String,
+			})
+		}
+	}
+
+	var rules []rule
+	if id, found := mux.Vars(r)["aclID"]; found {
+		r, err := loadACL(aclID(id))
+		if err != nil {
+			return "", err
+		}
+		rules = r
+	}
+
+	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "acl.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct {
+		ACLs []acl
+		ACL  []rule
+	}{
+		ACLs: acls,
+		ACL:  rules,
+	}); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func loadACL(id aclID) ([]rule, error) {
+	rows, err := db.Query(`
+SELECT rules.rule_id, rules.type, rules.value, rules.action, rules.comment
+FROM aclrules
+JOIN rules ON aclrules.rule_id=rules.rule_id
+WHERE aclrules.acl_id=?
+ORDER BY rules.comment`, string(id))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []rule
+	for rows.Next() {
+		var e rule
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &e.Type, &e.Value, &e.Action, &c); err != nil {
+			return nil, err
+		}
+		e.RuleID = ruleID(s)
+		e.Comment = c.String
+		rules = append(rules, e)
+	}
+	return rules, nil
 }
 
 func tailLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -192,9 +298,12 @@ func main() {
 	if flag.NArg() > 0 {
 		log.Fatalf("Extra args on cmdline: %q", flag.Args())
 	}
+	openDB()
 	log.Printf("Running...")
 	r := mux.NewRouter()
-	r.HandleFunc("/", rootHandler).Methods("GET", "HEAD")
+	r.HandleFunc("/", errWrap(rootHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 

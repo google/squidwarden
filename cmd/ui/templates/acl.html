@@ -1,0 +1,27 @@
+<ul>
+  {{range .ACLs}}
+  <li><a href="/acl/{{.ACLID}}">{{.Comment}}</a></li>
+  {{end}}
+</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Rule ID</th>
+      <th>Type</th>
+      <th>Value</th>
+      <th>Action</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .ACL}}
+    <tr>
+      <td>{{.RuleID}}</td>
+      <td>{{.Type}}</td>
+      <td>{{.Value}}</td>
+      <td>{{.Action}}</td>
+      <td>{{.Comment}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
