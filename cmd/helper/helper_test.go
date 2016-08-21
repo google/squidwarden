@@ -61,7 +61,7 @@ func TestDecisions(t *testing.T) {
 			t.Fatalf("Want err %v, got %v", test.err, err)
 		}
 		if v != test.want {
-			t.Errorf("Wrong results %q (want %q) for %q", v, test.want, test)
+			t.Errorf("Wrong results %t (want %t) for %v", v, test.want, test)
 		}
 	}
 }
