@@ -44,5 +44,5 @@ ul.buttons li:hover button {
 }
 td.latest-path {
     max-width: 10em;
-    overflow: scroll;
+    overflow: auto;
 }

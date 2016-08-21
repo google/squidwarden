@@ -29,7 +29,7 @@ const (
 	actionBlock  = "block"
 	actionIgnore = "ignore"
 
-	saneTime = "2016-01-02 15:04:05 MST"
+	saneTime = "2006-01-02 15:04:05 MST"
 )
 
 var (
@@ -146,7 +146,13 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		if err := tmpl.Execute(w, struct{ Content template.HTML }{Content: h}); err != nil {
+		if err := tmpl.Execute(w, struct {
+			Now     string
+			Content template.HTML
+		}{
+			Now:     time.Now().UTC().Format(saneTime),
+			Content: h,
+		}); err != nil {
 			log.Printf("Error in main handler: %v", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
