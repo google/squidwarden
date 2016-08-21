@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	actionAllow  = "allow"
 	actionBlock  = "block"
 	actionIgnore = "ignore"
 )
@@ -88,7 +89,7 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		id := uuid.NewV4()
 		log.Printf("Adding rule %q", id)
-		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, actionBlock, typ, value); err != nil {
+		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, actionAllow, typ, value); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, aclID, id); err != nil {
@@ -120,7 +121,7 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lines := reverse(strings.Split(string(b), "\n"))
-	const n = 10
+	const n = 30
 	if len(lines) > n {
 		lines = lines[:n]
 	}
