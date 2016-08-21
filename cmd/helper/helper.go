@@ -69,14 +69,24 @@ func (d *DomainRule) Check(proto, src, method, uri string) (string, error) {
 	if proto != "HTTP" {
 		return aclNoMatch, nil
 	}
+	if d.Value == "" {
+		return aclNoMatch, nil
+	}
 	p, err := url.Parse(uri)
 	if err != nil {
 		return "", err
 	}
-	if d.Value != "" && ("."+p.Host == d.Value || strings.HasSuffix(p.Host, d.Value)) {
-		return "OK", nil
+
+	// Exact hostname.
+	if p.Host == d.Value {
+		return aclMatch, nil
 	}
-	return "ERR", nil
+
+	// Domain suffix.
+	if d.Value[0] == '.' && ("."+p.Host == d.Value || strings.HasSuffix(p.Host, d.Value)) {
+		return aclMatch, nil
+	}
+	return aclNoMatch, nil
 }
 
 type RegexRule struct {
@@ -104,6 +114,9 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (string, error) 
 	if method != "CONNECT" {
 		return aclNoMatch, nil
 	}
+	if d.Value == "" {
+		return aclNoMatch, nil
+	}
 	host, port, err := net.SplitHostPort(uri)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse HTTPS host:port %q: %v", uri, err)
@@ -111,7 +124,13 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (string, error) 
 	if port != "443" {
 		return aclNoMatch, nil
 	}
-	if d.Value != "" && ("."+host == d.Value || strings.HasSuffix(host, d.Value)) {
+	// Exact hostname.
+	if host == d.Value {
+		return aclMatch, nil
+	}
+
+	// Domain suffix.
+	if d.Value[0] == '.' && ("."+host == d.Value || strings.HasSuffix(host, d.Value)) {
 		return aclMatch, nil
 	}
 	return aclNoMatch, nil
