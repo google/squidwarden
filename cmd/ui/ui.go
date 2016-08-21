@@ -159,7 +159,7 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 			Time:   s[1],
 			Client: s[2],
 			Method: s[4],
-			Domain: host2domain(host),
+			Domain: "." + host2domain(host),
 			Host:   host,
 			Path:   p,
 			URL:    u,

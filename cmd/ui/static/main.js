@@ -41,8 +41,9 @@ function refreshTail() {
 		td = document.createElement("td");
 		ul = document.createElement("ul");
 		ul.classList = ["buttons"];
-		ul.appendChild(createButtonLI("Domain", {type: "domain", value: data[i].Domain}, data[i].Domain));
-		ul.appendChild(createButtonLI("Host", {}, data[i].Host));
+		type = (data[i].Method == "CONNECT") ? "https-domain" : "domain";
+		ul.appendChild(createButtonLI("Domain", {type: type, value: data[i].Domain}, data[i].Domain));
+		ul.appendChild(createButtonLI("Host", {type: type, value: data[i].Host}, data[i].Host));
 		ul.appendChild(createButtonLI("Path", {}, data[i].URL));
 
 		td.appendChild(ul);
