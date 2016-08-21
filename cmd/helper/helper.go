@@ -33,20 +33,31 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
-	dbFile  = flag.String("db", "", "sqlite database.")
-	logFile = flag.String("log", "", "Logfile. Default to stderr.")
-	verbose = flag.Int("v", 1, "Verbosity level.")
+	dbFile   = flag.String("db", "", "sqlite database.")
+	logFile  = flag.String("log", "", "Logfile. Default to stderr.")
+	verbose  = flag.Int("v", 1, "Verbosity level.")
+	blockLog = flag.String("block_log", "", "Block log.")
 
 	db *sql.DB
 )
 
+type action string
+
 const (
+	actionNone   action = "none"
+	actionBlock  action = "block"
+	actionIgnore action = "ignore"
+	actionAllow  action = "allow"
+
+	actionDefault = actionBlock
+
 	aclMatch   = "OK"
 	aclNoMatch = "ERR"
 )
@@ -58,88 +69,96 @@ type Config struct {
 }
 
 type Rule interface {
-	Check(proto, src, method, uri string) (string, error)
+	Check(proto, src, method, uri string) (bool, error)
+	Action() action
 }
 
 type DomainRule struct {
-	Value string
+	value  string
+	action action
 }
 
-func (d *DomainRule) Check(proto, src, method, uri string) (string, error) {
+func (d *DomainRule) Action() action { return d.action }
+func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
-		return aclNoMatch, nil
+		return false, nil
 	}
-	if d.Value == "" {
-		return aclNoMatch, nil
+	if d.value == "" {
+		return false, nil
 	}
 	p, err := url.Parse(uri)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
 	// Exact hostname.
-	if p.Host == d.Value {
-		return aclMatch, nil
+	if p.Host == d.value {
+		return true, nil
 	}
 
 	// Domain suffix.
-	if d.Value[0] == '.' && ("."+p.Host == d.Value || strings.HasSuffix(p.Host, d.Value)) {
-		return aclMatch, nil
+	if d.value[0] == '.' && ("."+p.Host == d.value || strings.HasSuffix(p.Host, d.value)) {
+		return true, nil
 	}
-	return aclNoMatch, nil
+	return false, nil
 }
 
 type RegexRule struct {
-	re *regexp.Regexp
+	action action
+	re     *regexp.Regexp
 }
 
-func (d *RegexRule) Check(proto, src, method, uri string) (string, error) {
+func (d *RegexRule) Action() action { return d.action }
+func (d *RegexRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
-		return aclNoMatch, nil
+		return false, nil
 	}
 	if d.re.MatchString(uri) {
-		return aclMatch, nil
+		return true, nil
 	}
-	return aclNoMatch, nil
+	return false, nil
 }
 
 type HTTPSDomainRule struct {
-	Value string
+	value  string
+	action action
 }
 
-func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (string, error) {
+func (d *HTTPSDomainRule) Action() action { return d.action }
+func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "NONE" {
-		return aclNoMatch, nil
+		return false, nil
 	}
 	if method != "CONNECT" {
-		return aclNoMatch, nil
+		return false, nil
 	}
-	if d.Value == "" {
-		return aclNoMatch, nil
+	if d.value == "" {
+		return false, nil
 	}
 	host, port, err := net.SplitHostPort(uri)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HTTPS host:port %q: %v", uri, err)
+		return false, fmt.Errorf("failed to parse HTTPS host:port %q: %v", uri, err)
 	}
 	if port != "443" {
-		return aclNoMatch, nil
+		return false, nil
 	}
 	// Exact hostname.
-	if host == d.Value {
-		return aclMatch, nil
+	if host == d.value {
+		return true, nil
 	}
 
 	// Domain suffix.
-	if d.Value[0] == '.' && ("."+host == d.Value || strings.HasSuffix(host, d.Value)) {
-		return aclMatch, nil
+	if d.value[0] == '.' && ("."+host == d.value || strings.HasSuffix(host, d.value)) {
+		return true, nil
 	}
-	return aclNoMatch, nil
+	return false, nil
 }
 
-func decide(cfg *Config, proto, src, method, uri string) (string, error) {
+// decide returns 'match found', 'action to take', error
+func decide(cfg *Config, proto, src, method, uri string) (bool, action, error) {
 	source := net.ParseIP(src)
 	if source == nil {
-		return "", fmt.Errorf("source is not a valid address: %q", src)
+		return false, actionNone, fmt.Errorf("source is not a valid address: %q", src)
 	}
 	for a, rules := range cfg.Sources {
 		_, net, err := net.ParseCIDR(a)
@@ -151,16 +170,16 @@ func decide(cfg *Config, proto, src, method, uri string) (string, error) {
 			continue
 		}
 		for _, ruleName := range rules {
-			t, err := cfg.Rules[ruleName].Check(proto, src, method, uri)
+			rule := cfg.Rules[ruleName]
+			t, err := rule.Check(proto, src, method, uri)
 			if err != nil {
 				log.Printf("Failed to evaluate rule %q: %v", ruleName, err)
-			}
-			if t == "OK" {
-				return t, nil
+			} else if t {
+				return true, rule.Action(), nil
 			}
 		}
 	}
-	return aclNoMatch, nil
+	return false, actionDefault, nil
 }
 
 func mainLoop() {
@@ -192,28 +211,55 @@ func mainLoop() {
 		method := s[3]
 		uri := s[4]
 		urip, err := url.QueryUnescape(uri)
-		var d string
+		reply := aclNoMatch
 		if err != nil {
 			log.Printf("URI escape error on %q: %v", s, err)
-			d = aclNoMatch
 		} else {
-			d, err = decide(cfg, proto, src, method, urip)
+			_, act, err := decide(cfg, proto, src, method, urip)
 			if err != nil {
 				log.Printf("Decision error on %q: %v", s, err)
-				d = aclNoMatch
+			}
+			switch act {
+			case actionBlock, actionNone:
+				if *verbose > 0 && reply != aclMatch {
+					log.Printf("No match(%s): %q", act, s)
+				}
+				if err := logBlock(proto, src, method, urip); err != nil {
+					log.Printf("Logging block: %v", err)
+				}
+			case actionIgnore:
+			case actionAllow:
+				reply = aclMatch
 			}
 		}
 		if *verbose > 1 {
-			log.Printf("Replied: %s %s", token, d)
+			log.Printf("Replied: %s %s", token, reply)
 		}
-		if *verbose > 0 && d != aclMatch {
-			log.Printf("No match: %q", s)
-		}
-		fmt.Printf("%s %s\n", token, d)
+		fmt.Printf("%s %s\n", token, reply)
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func logBlock(proto, src, method, urip string) error {
+	f, err := os.OpenFile(*blockLog, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	fmt.Fprintf(f, "%f 0 %s %s %d %s %s - HIER/- foo/bar\n", float64(time.Now().UnixNano())/1e9, src, "DENIED", 0, method, urip)
+	if err := f.Sync(); err != nil {
+		log.Printf("Failed to sync blockfile: %v", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
+		return err
+	}
+	return nil
 }
 
 func loadConfig() (*Config, error) {
@@ -249,7 +295,7 @@ JOIN rules ON aclrules.rule_id=rules.rule_id`)
 
 	if err := func() error {
 		rows, err := db.Query(`
-SELECT rule_id, type, value
+SELECT rule_id, type, value, action
 FROM rules
 `)
 		if err != nil {
@@ -257,22 +303,22 @@ FROM rules
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var rule, typ, val string
-			if err := rows.Scan(&rule, &typ, &val); err != nil {
+			var rule, typ, val, act string
+			if err := rows.Scan(&rule, &typ, &val, &act); err != nil {
 				return err
 			}
 			var r Rule
 			switch typ {
 			case "https-domain":
-				r = &HTTPSDomainRule{val}
+				r = &HTTPSDomainRule{value: val, action: action(act)}
 			case "domain":
-				r = &DomainRule{val}
+				r = &DomainRule{value: val, action: action(act)}
 			case "regex":
 				x, err := regexp.Compile(val)
 				if err != nil {
 					return fmt.Errorf("compiling regex %q: %v", val, err)
 				}
-				r = &RegexRule{x}
+				r = &RegexRule{re: x, action: action(act)}
 			default:
 				return fmt.Errorf("unknown rule type %q", typ)
 			}

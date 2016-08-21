@@ -38,6 +38,7 @@ CREATE TABLE rules(
        rule_id TEXT NOT NULL,
        type TEXT NOT NULL,
        value TEXT NOT NULL,
+       action TEXT NOT NULL,
        comment TEXT,
        PRIMARY KEY(rule_id),
        UNIQUE(type,value)
