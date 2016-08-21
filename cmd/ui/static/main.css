@@ -33,7 +33,7 @@ ul.buttons li {
     text-align: center;
     border-radius: 6px;
     padding: 3px;
-    left: -0%;
+    left: -100%;
     top: +110%;
 }
 ul.buttons li:hover .tooltip {
