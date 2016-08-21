@@ -184,6 +184,9 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 			}
 			data.ACLs = append(data.ACLs, e)
 		}
+		if err := rows.Err(); err != nil {
+			return "", err
+		}
 	}
 
 	if len(current) > 0 {
@@ -228,6 +231,10 @@ ORDER BY rules.comment`, string(id))
 		e.Comment = c.String
 		rules = append(rules, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return rules, nil
 }
 
