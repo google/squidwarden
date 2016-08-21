@@ -41,6 +41,7 @@ import (
 var (
 	dbFile  = flag.String("db", "", "sqlite database.")
 	logFile = flag.String("log", "", "Logfile. Default to stderr.")
+	verbose = flag.Int("v", 1, "Verbosity level.")
 
 	db *sql.DB
 )
@@ -72,7 +73,7 @@ func (d *DomainRule) Check(proto, src, method, uri string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if d.Value != "" && strings.HasSuffix(p.Host, d.Value) {
+	if d.Value != "" && ("."+p.Host == d.Value || strings.HasSuffix(p.Host, d.Value)) {
 		return "OK", nil
 	}
 	return "ERR", nil
@@ -110,7 +111,7 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (string, error) 
 	if port != "443" {
 		return aclNoMatch, nil
 	}
-	if d.Value != "" && strings.HasSuffix(host, d.Value) {
+	if d.Value != "" && ("."+host == d.Value || strings.HasSuffix(host, d.Value)) {
 		return aclMatch, nil
 	}
 	return aclNoMatch, nil
@@ -163,6 +164,9 @@ func mainLoop() {
 		}
 
 		s := strings.Split(scanner.Text(), " ")
+		if *verbose > 1 {
+			log.Printf("Got %q", s)
+		}
 		token := s[0]
 		proto := s[1]
 		src := s[2]
@@ -179,6 +183,12 @@ func mainLoop() {
 				log.Printf("Decision error on %q: %v", s, err)
 				d = aclNoMatch
 			}
+		}
+		if *verbose > 1 {
+			log.Printf("Replied: %s %s", token, d)
+		}
+		if *verbose > 0 && d != aclMatch {
+			log.Printf("No match: %q", s)
 		}
 		fmt.Printf("%s %s\n", token, d)
 	}
