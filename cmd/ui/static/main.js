@@ -53,16 +53,8 @@ function refreshTail() {
 	    l.append(tr);
 	}
     }).fail(function(o, text, error) {
-	var msg;
-	if (o.readyState == 0) {
-	    msg = "Network error";
-	} else if (o.readyState == 4) {
-	    msg = text + ", " + error;
-	} else {
-	    msg = "unknown error type for readyState " + o.readyState;
-	}
 	var e = document.createElement("p");
-	e.innerText = "Error: " + msg;
+	e.innerText = "Error: " + ajaxError(o, text, error);
 	$("#error-messages").append(e);
     });
 }
@@ -83,14 +75,25 @@ function createButtonLI(name, data, value) {
 
 function buttonClick(btn) {
     $("#test").html("Loading...");
-    var data = btn.target.squidwarden_data;
-    console.log(btn);
-    console.log(data);
+    var data = $.extend({}, btn.target.squidwarden_data, {"action": $("#action").val()});
+    console.log("Button click ", btn);
+    console.log("Button data ",data);
     $.post("/ajax/allow", data)
         .done(function(){
 	    $("#test").html("Added");
         })
-        .fail(function(){
-	    $("#test").html("Failed!");
+        .fail(function(o, text, error){
+	    $("#test").text("Failed: " + ajaxError(o, text, error));
         });
+}
+function ajaxError(o, text, error) {
+    var msg;
+    if (o.readyState == 0) {
+	msg = "Network error";
+    } else if (o.readyState == 4) {
+	msg = text + ", " + error;
+    } else {
+	msg = "unknown error type for readyState " + o.readyState;
+    }
+    return msg;
 }

@@ -98,7 +98,8 @@ func openDB() {
 func allowHandler(w http.ResponseWriter, r *http.Request) {
 	typ := r.FormValue("type")
 	value := r.FormValue("value")
-	if typ == "" || value == "" {
+	action := r.FormValue("action")
+	if typ == "" || value == "" || action == "" {
 		http.Error(w, "Missing parameters", http.StatusBadRequest)
 		return
 	}
@@ -111,7 +112,7 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		id := uuid.NewV4()
 		log.Printf("Adding rule %q", id)
-		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, actionAllow, typ, value); err != nil {
+		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, action, typ, value); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, aclID, id); err != nil {
