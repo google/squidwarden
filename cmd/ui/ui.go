@@ -7,12 +7,15 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
@@ -23,6 +26,8 @@ const (
 	actionAllow  = "allow"
 	actionBlock  = "block"
 	actionIgnore = "ignore"
+
+	saneTime = "2016-01-02 15:04:05 MST"
 )
 
 var (
@@ -158,8 +163,13 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		ts, err := strconv.ParseFloat(s[1], 64)
+		if err != nil {
+			log.Printf("Failed to parse epoch time %q: %v", s[1], err)
+		}
+
 		entries = append(entries, logEntry{
-			Time:   s[1],
+			Time:   time.Unix(int64(ts), int64(1e9*(ts-math.Trunc(ts)))).UTC().Format(saneTime),
 			Client: s[2],
 			Method: s[4],
 			Domain: "." + host2domain(host),

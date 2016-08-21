@@ -6,56 +6,65 @@ $(document).ready(function() {
 function refreshTail() {
     var l = $("#latest tbody");
     l.html("");
-    $.getJSON("/ajax/tail-log", {})
-        .done(function(data) {
-	    var tr;
-	    var td;
-	    var ul;
-            for (var i = 0; i < data.length; i++) {
-		tr = document.createElement("tr");
+    $.getJSON("/ajax/tail-log", function(data) {
+	var tr;
+	var td;
+	var ul;
+        for (var i = 0; i < data.length; i++) {
+	    tr = document.createElement("tr");
 
-		td = document.createElement("td");
-		td.innerText = data[i].Time
-		tr.appendChild(td);
+	    td = document.createElement("td");
+	    td.innerText = data[i].Time
+	    tr.appendChild(td);
 
-		td = document.createElement("td");
-		td.innerText = data[i].Client
-		tr.appendChild(td);
+	    td = document.createElement("td");
+	    td.innerText = data[i].Client
+	    tr.appendChild(td);
 
-		td = document.createElement("td");
-		td.innerText = data[i].Method
-		tr.appendChild(td);
+	    td = document.createElement("td");
+	    td.innerText = data[i].Method
+	    tr.appendChild(td);
 
-		td = document.createElement("td");
-		td.innerText = data[i].Host
-		tr.appendChild(td);
+	    td = document.createElement("td");
+	    td.innerText = data[i].Host
+	    tr.appendChild(td);
 
-		td = document.createElement("td");
-		td.innerText = data[i].Path
-		td.classList = ["latest-path"]
-		tr.appendChild(td);
+	    td = document.createElement("td");
+	    td.innerText = data[i].Path
+	    td.classList = ["latest-path"]
+	    tr.appendChild(td);
 
-		var li;
-		var button;
-		var span;
-		td = document.createElement("td");
-		ul = document.createElement("ul");
-		ul.classList = ["buttons"];
-		type = (data[i].Method == "CONNECT") ? "https-domain" : "domain";
-		ul.appendChild(createButtonLI("Domain", {type: type, value: data[i].Domain}, data[i].Domain));
-		ul.appendChild(createButtonLI("Host", {type: type, value: data[i].Host}, data[i].Host));
-		if (data[i].Method != "CONNECT") {
-		    ul.appendChild(createButtonLI("Path", {}, data[i].URL));
-		}
-
-		td.appendChild(ul);
-		tr.appendChild(td);
-
-		l.append(tr);
+	    var li;
+	    var button;
+	    var span;
+	    td = document.createElement("td");
+	    ul = document.createElement("ul");
+	    ul.classList = ["buttons"];
+	    type = (data[i].Method == "CONNECT") ? "https-domain" : "domain";
+	    ul.appendChild(createButtonLI("Domain", {type: type, value: data[i].Domain}, data[i].Domain));
+	    ul.appendChild(createButtonLI("Host", {type: type, value: data[i].Host}, data[i].Host));
+	    if (data[i].Method != "CONNECT") {
+		ul.appendChild(createButtonLI("Path", {}, data[i].URL));
 	    }
-            console.log(data);
-        })
-        .fail(function() {});
+
+	    td.appendChild(ul);
+	    tr.appendChild(td);
+
+	    l.append(tr);
+	}
+    }).fail(function(o, text, error) {
+	var msg;
+	if (o.readyState == 0) {
+	    msg = "Network error";
+	} else if (o.readyState == 4) {
+	    msg = text + ", " + error;
+	} else {
+	    msg = "unknown error type for readyState " + o.readyState;
+	}
+	var e = document.createElement("p");
+	e.innerText = "Error: " + msg;
+	$("#error-messages").append(e);
+    });
 }
 
 function createButtonLI(name, data, value) {
@@ -79,11 +88,9 @@ function buttonClick(btn) {
     console.log(data);
     $.post("/ajax/allow", data)
         .done(function(){
-	    console.log("success");
 	    $("#test").html("Added");
         })
         .fail(function(){
-	    console.log("fail");
 	    $("#test").html("Failed!");
         });
 }
