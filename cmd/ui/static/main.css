@@ -1,3 +1,7 @@
+table#latest {
+    width: 95%;
+    display: table;
+}
 table.latest tbody tr:nth-child(odd) {
     background: #ddd;
 }

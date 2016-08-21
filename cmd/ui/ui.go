@@ -154,7 +154,14 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
-	var acls []acl
+	current := aclID(mux.Vars(r)["aclID"])
+
+	data := struct {
+		ACLs []acl
+
+		Current acl
+		Rules   []rule
+	}{}
 	{
 		rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
 		if err != nil {
@@ -168,31 +175,30 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 			if err := rows.Scan(&s, &c); err != nil {
 				return "", err
 			}
-			acls = append(acls, acl{
+			e := acl{
 				ACLID:   aclID(s),
 				Comment: c.String,
-			})
+			}
+			if current == e.ACLID {
+				data.Current = e
+			}
+			data.ACLs = append(data.ACLs, e)
 		}
 	}
 
-	var rules []rule
-	if id, found := mux.Vars(r)["aclID"]; found {
-		r, err := loadACL(aclID(id))
+	if len(current) > 0 {
+		r, err := loadACL(current)
 		if err != nil {
 			return "", err
 		}
-		rules = r
+		data.Rules = r
 	}
 
-	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "acl.html")))
+	tmpl := template.Must(template.New("acl.html").Funcs(template.FuncMap{
+		"aclIDEQ": func(a, b aclID) bool { return a == b },
+	}).ParseFiles(path.Join(*templates, "acl.html")))
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, struct {
-		ACLs []acl
-		ACL  []rule
-	}{
-		ACLs: acls,
-		ACL:  rules,
-	}); err != nil {
+	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
 	}
 	return template.HTML(buf.String()), nil

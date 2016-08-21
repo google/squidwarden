@@ -1,8 +1,15 @@
+{{$root := .}}
+<script type="text/javascript" src="/static/acl.js"></script>
 <ul>
-  {{range .ACLs}}
-  <li><a href="/acl/{{.ACLID}}">{{.Comment}}</a></li>
-  {{end}}
+  <select id="acl-selection">
+    <option value="">[no ACL selected]</option>
+    {{range .ACLs}}
+    <option value="{{.ACLID}}"{{if aclIDEQ $root.Current.ACLID .ACLID}} selected{{end}}>{{.Comment}}</option>
+    {{end}}
+  </select>
 </ul>
+{{if .Current.ACLID}}
+<h2>ACL: {{.Current.Comment}}</h2>
 <table>
   <thead>
     <tr>
@@ -14,9 +21,9 @@
     </tr>
   </thead>
   <tbody>
-    {{range .ACL}}
+    {{range .Rules}}
     <tr>
-      <td>{{.RuleID}}</td>
+      <td class="fixed">{{.RuleID}}</td>
       <td>{{.Type}}</td>
       <td>{{.Value}}</td>
       <td>{{.Action}}</td>
@@ -25,3 +32,4 @@
     {{end}}
   </tbody>
 </table>
+{{end}}
