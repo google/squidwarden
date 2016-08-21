@@ -148,9 +148,6 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var host, p string
 		u := s[5]
-		if strings.HasPrefix(u, "cache_object://") {
-			continue
-		}
 		if ur, err := url.Parse(u); strings.Contains(u, "/") && err == nil && ur.Scheme != "" {
 			host = ur.Host
 			p = ur.Path

@@ -156,6 +156,11 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 
 // decide returns 'match found', 'action to take', error
 func decide(cfg *Config, proto, src, method, uri string) (bool, action, error) {
+	// Special case this because net/url can't parse these.
+	if strings.HasPrefix(uri, "cache_object://") {
+		return true, actionIgnore, nil
+	}
+
 	source := net.ParseIP(src)
 	if source == nil {
 		return false, actionNone, fmt.Errorf("source is not a valid address: %q", src)
