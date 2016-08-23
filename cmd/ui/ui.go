@@ -1,9 +1,25 @@
+/*
+Copyright 2016 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package main
 
 import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -251,6 +267,55 @@ ORDER BY rules.comment`, string(id))
 	return rules, nil
 }
 
+type logEntry struct {
+	Time   string
+	Client string
+	Method string
+	Domain string
+	Host   string
+	Path   string
+	URL    string
+}
+
+var errSkip = errors.New("skip this one, don't log")
+
+func parseLogEntry(l string) (*logEntry, error) {
+	//                        time        ms    client     DENIED    size   method  URL           HIER    type
+	re := regexp.MustCompile(`([0-9.]+)\s+\d+\s+([^\s]+)\s+([^\s]+)\s+\d+\s+(\w+)\s+([^\s]+)\s+-\s[^\s]+\s([^\s]+)`)
+	if len(l) == 0 {
+		return nil, errSkip
+	}
+	s := re.FindStringSubmatch(l)
+	if len(s) == 0 {
+		return nil, fmt.Errorf("bad log line: %q", l)
+	}
+	var host, p string
+	u := s[5]
+	if ur, err := url.Parse(u); strings.Contains(u, "/") && err == nil && ur.Scheme != "" {
+		host = ur.Host
+		p = ur.Path
+	} else {
+		host, _, err = net.SplitHostPort(u)
+		if err != nil {
+			host = u
+		}
+	}
+
+	ts, err := strconv.ParseFloat(s[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse epoch time %q: %v", s[1], err)
+	}
+	return &logEntry{
+		Time:   time.Unix(int64(ts), int64(1e9*(ts-math.Trunc(ts)))).UTC().Format(saneTime),
+		Client: s[2],
+		Method: s[4],
+		Domain: host2domain(host),
+		Host:   host,
+		Path:   p,
+		URL:    u,
+	}, nil
+}
+
 func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 	b, err := ioutil.ReadFile(*squidLog)
 	if err != nil {
@@ -262,53 +327,16 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 	if len(lines) > n {
 		lines = lines[:n]
 	}
-	type logEntry struct {
-		Time   string
-		Client string
-		Method string
-		Domain string
-		Host   string
-		Path   string
-		URL    string
-	}
-	entries := []logEntry{}
-	//                        time        ms    client     DENIED    size   method  URL           HIER    type
-	re := regexp.MustCompile(`([0-9.]+)\s+\d+\s+([^\s]+)\s+([^\s]+)\s+\d+\s+(\w+)\s+([^\s]+)\s+-\s[^\s]+\s([^\s]+)`)
+	entries := []*logEntry{}
 	for _, l := range lines {
-		if len(l) == 0 {
-			continue
+		entry, err := parseLogEntry(l)
+		switch err {
+		case nil:
+			entries = append(entries, entry)
+		case errSkip:
+		default:
+			log.Printf("Parsing log entry: %v", err)
 		}
-		s := re.FindStringSubmatch(l)
-		if len(s) == 0 {
-			log.Printf("Bad log line: %q", l)
-			continue
-		}
-		var host, p string
-		u := s[5]
-		if ur, err := url.Parse(u); strings.Contains(u, "/") && err == nil && ur.Scheme != "" {
-			host = ur.Host
-			p = ur.Path
-		} else {
-			host, _, err = net.SplitHostPort(u)
-			if err != nil {
-				host = u
-			}
-		}
-
-		ts, err := strconv.ParseFloat(s[1], 64)
-		if err != nil {
-			log.Printf("Failed to parse epoch time %q: %v", s[1], err)
-		}
-
-		entries = append(entries, logEntry{
-			Time:   time.Unix(int64(ts), int64(1e9*(ts-math.Trunc(ts)))).UTC().Format(saneTime),
-			Client: s[2],
-			Method: s[4],
-			Domain: host2domain(host),
-			Host:   host,
-			Path:   p,
-			URL:    u,
-		})
 	}
 	b, err = json.Marshal(entries)
 	if err != nil {
@@ -332,6 +360,7 @@ func main() {
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
+	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
