@@ -23,7 +23,10 @@ var wsTail;
 function streamTail() {
     wsTail = openWebsocket("/ajax/tail-log/stream");
     wsTail.onopen = function(){console.log("Tail log open")}
-    wsTail.onclose = function(){error("Tail log closed")}
+    wsTail.onclose = function(){
+	console.log("websocket closed, reopening...");
+	streamTail();
+    }
     wsTail.onerror = function(){error("Tail log error")}
     wsTail.onmessage = function(evt) {
 	var data = JSON.parse(evt.data);
@@ -92,6 +95,7 @@ function pauseScroll() {
     } else {
 	btn.data("paused", true);
 	btn.text("Unpause scroll");
+	wsTail.onclose = function(){}
 	wsTail.close();
     }
 }

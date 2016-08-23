@@ -63,6 +63,7 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 	sleep := false
+	first := true
 	for {
 		if sleep {
 			time.Sleep(time.Second)
@@ -100,7 +101,10 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 		e, err := parseLogEntry(line)
 		if err == errSkip {
 		} else if err != nil {
-			log.Printf("Error parsing log line: %v", err)
+			if !first {
+				log.Printf("Error parsing log line: %v", err)
+			}
+			first = false
 			continue
 		}
 		data, err := json.Marshal(e)
