@@ -49,4 +49,4 @@ $ sudo -u proxy ./bin/ui \
     -db=/var/spool/squid3/proxyacl.sqlite
 ```
 
-Then point browser to http://localhost:8080/ and get started.
+Then point browser to http://localhost:8081/ and get started.
