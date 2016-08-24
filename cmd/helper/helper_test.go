@@ -19,24 +19,16 @@ import (
 	"testing"
 )
 
-func TestDecisions(t *testing.T) {
-	cfg := Config{
-		Rules: map[string]Rule{
-			"test": &DomainRule{".habets.se", "allow"},
-		},
-		Sources: map[string][]string{
-			"127.0.0.0/8": []string{"test"},
-		},
-	}
+func init() {
 	*dbFile = "../../testdata/test.sqlite"
 	openDB()
-	defer db.Close()
+}
 
-	cfg2, err := loadConfig()
+func TestDecisions(t *testing.T) {
+	cfg, err := loadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg = *cfg2
 	for _, test := range []struct {
 		proto, src, method, uri string
 		err                     bool
@@ -56,7 +48,7 @@ func TestDecisions(t *testing.T) {
 		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:8443", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "www.habets.co.uk:443", false, false},
 	} {
-		v, _, err := decide(&cfg, test.proto, test.src, test.method, test.uri)
+		v, _, err := decide(cfg, test.proto, test.src, test.method, test.uri)
 		if err != nil != test.err {
 			t.Fatalf("Want err %v, got %v", test.err, err)
 		}
