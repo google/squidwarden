@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/exp/inotify"
 )
 
 var (
@@ -55,33 +56,74 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "File seek failed", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Creating websocket...")
 	conn, err := wsupgrade.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Upgrade failed: %v", err)
 		http.Error(w, "Upgrade failed", http.StatusBadRequest)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		log.Printf("Closing websocket")
+		conn.Close()
+	}()
+	changeTick := make(chan struct{}, 1)
+	changeTick <- struct{}{}
+
+	// Tick every time the file changes, or 10s if it doesn't.
+	{
+		w, err := inotify.NewWatcher()
+		if err != nil {
+			log.Fatalf("Couldn't create watcher: %v", err)
+		}
+		defer w.Close()
+		if err := w.AddWatch(*squidLog, inotify.IN_MODIFY); err != nil {
+			log.Fatalf("Couldn't add watcher on %s: %v", *squidLog, err)
+		}
+		go func() {
+			defer close(changeTick)
+			for {
+				select {
+				case _, ok := <-w.Event:
+					log.Printf("Event %v!", ok)
+					if !ok {
+						return
+					}
+				case <-time.After(10 * time.Second):
+				}
+				select {
+				case changeTick <- struct{}{}:
+				default:
+				}
+			}
+		}()
+	}
+
 	sleep := false
 	first := true
+	done := websocketDone(conn)
 	for {
 		if sleep {
-			time.Sleep(time.Second)
+			<-changeTick
 		}
-		sleep = true
+		sleep = false
+		if done() {
+			return
+		}
 
-		if pos, err := f.Seek(pos, 0); err != nil {
+		if _, err := f.Seek(pos, 0); err != nil {
 			log.Printf("File seek failed: %v", err)
 			return
-		} else {
-			if false {
-				log.Printf("Reading at pos %d", pos)
-			}
 		}
 		rd := bufio.NewReader(f)
 		line, err := rd.ReadString('\n')
 		if err == io.EOF {
-			//log.Printf("Read %d EOF", len(line))
+			sleep = true
+			if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
+				log.Printf("Ping failed: %v", err)
+				return
+			}
 			continue
 		}
 		if err != nil {
@@ -94,6 +136,7 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("File seek failed: %v", err)
 				return
 			}
+			sleep = true
 			continue
 		}
 		pos += int64(len(line))
@@ -113,9 +156,35 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("Message write failed: %v", err)
+			//log.Printf("Message write failed: %v", err)
 			return
 		}
-		sleep = false
+	}
+}
+
+func websocketDone(c *websocket.Conn) func() bool {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		typ, _, err := c.ReadMessage()
+		if websocket.IsCloseError(err, websocket.CloseGoingAway) {
+			return
+		}
+		if err != nil {
+			log.Printf("Error reading message: %v %v", typ, err)
+			return
+		}
+		if typ == websocket.CloseMessage {
+			log.Printf("Socket closed using close message")
+			return
+		}
+	}()
+	return func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
 	}
 }
