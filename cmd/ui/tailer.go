@@ -57,7 +57,7 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Creating websocket...")
+	//log.Printf("Creating websocket...")
 	conn, err := wsupgrade.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Upgrade failed: %v", err)
@@ -65,7 +65,7 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		log.Printf("Closing websocket")
+		//log.Printf("Closing websocket")
 		conn.Close()
 	}()
 	changeTick := make(chan struct{}, 1)
@@ -86,7 +86,7 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 			for {
 				select {
 				case _, ok := <-w.Event:
-					log.Printf("Event %v!", ok)
+					//log.Printf("Event %v!", ok)
 					if !ok {
 						return
 					}

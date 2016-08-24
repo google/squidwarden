@@ -23,11 +23,13 @@ var wsTail;
 function streamTail() {
     wsTail = openWebsocket("/ajax/tail-log/stream");
     wsTail.onopen = function(){console.log("Tail log open")}
-    wsTail.onclose = function(){
-	console.log("websocket closed, reopening...");
+    wsTail.onclose = function(ev){
+	console.log("websocket closed with code " + ev.code + ", reopening...");
 	streamTail();
     }
-    wsTail.onerror = function(){error("Tail log error")}
+    wsTail.onerror = function(ev){
+	error("Error streaming tail log. Will re-attempt");
+    }
     wsTail.onmessage = function(evt) {
 	var data = JSON.parse(evt.data);
 	var l = $("#latest tbody");
