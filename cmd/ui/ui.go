@@ -132,6 +132,7 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
+		defer tx.Rollback()
 		id := uuid.NewV4()
 		log.Printf("Adding rule %q", id)
 		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, action, typ, value); err != nil {
