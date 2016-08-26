@@ -132,23 +132,27 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if method != "CONNECT" {
 		return false, nil
 	}
-	if d.value == "" {
+	dhost, dport, err := net.SplitHostPort(d.value)
+	if err != nil {
+		dhost, dport = d.value, "443"
+	}
+	if dhost == "" {
 		return false, nil
 	}
 	host, port, err := net.SplitHostPort(uri)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse HTTPS host:port %q: %v", uri, err)
 	}
-	if port != "443" {
+	if port != dport {
 		return false, nil
 	}
 	// Exact hostname.
-	if host == d.value {
+	if host == dhost {
 		return true, nil
 	}
 
 	// Domain suffix.
-	if d.value[0] == '.' && ("."+host == d.value || strings.HasSuffix(host, d.value)) {
+	if dhost[0] == '.' && ("."+host == dhost || strings.HasSuffix(host, dhost)) {
 		return true, nil
 	}
 	return false, nil

@@ -16,12 +16,48 @@ limitations under the License.
 package main
 
 import (
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path"
 	"testing"
 )
 
-func init() {
-	*dbFile = "../../testdata/test.sqlite"
-	openDB()
+var (
+	sqliteBin = "/usr/bin/sqlite3"
+)
+
+func TestMain(m *testing.M) {
+	var res int
+	func() {
+		dir, err := ioutil.TempDir("", "squidwarden_test_")
+		if err != nil {
+			panic(err)
+		}
+
+		defer os.RemoveAll(dir) // clean up
+		*dbFile = path.Join(dir, "sqidwarden_test.sqlite")
+
+		executeSQL := func(fn string) {
+			f, err := os.Open(fn)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			cmd := exec.Command(sqliteBin, *dbFile)
+			cmd.Stdin = f
+			if err := cmd.Run(); err != nil {
+				panic(err)
+			}
+		}
+
+		executeSQL("../../sqlite.schema")
+		executeSQL("../../testdata/test.sql")
+
+		openDB()
+		res = m.Run()
+	}()
+	os.Exit(res)
 }
 
 func TestDecisions(t *testing.T) {
@@ -47,13 +83,18 @@ func TestDecisions(t *testing.T) {
 		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:443", false, true},
 		{"NONE", "127.0.0.1", "CONNECT", "www.habets.se:8443", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "www.habets.co.uk:443", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "www.port.com:443", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "www.port.com:8443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "www.github.com:443", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "github.com:443", false, true},
 	} {
 		v, _, err := decide(cfg, test.proto, test.src, test.method, test.uri)
 		if err != nil != test.err {
-			t.Fatalf("Want err %v, got %v", test.err, err)
-		}
-		if v != test.want {
-			t.Errorf("Wrong results %t (want %t) for %v", v, test.want, test)
+			t.Errorf("Want err %v, got %v for %+v", test.err, err, test)
+		} else {
+			if v != test.want {
+				t.Errorf("Wrong results %t (want %t) for %+v", v, test.want, test)
+			}
 		}
 	}
 }
