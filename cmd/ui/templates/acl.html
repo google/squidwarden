@@ -1,19 +1,29 @@
 {{$root := .}}
 <script type="text/javascript" src="/static/acl.js"></script>
 <link rel="stylesheet" type="text/css" href="/static/acl.css" media="screen"/>
-<ul>
-  <select id="acl-selection">
-    <option value="">[no ACL selected]</option>
-    {{range .ACLs}}
-    <option value="{{.ACLID}}"{{if aclIDEQ $root.Current.ACLID .ACLID}} selected{{end}}>{{.Comment}}</option>
-    {{end}}
-  </select>
-</ul>
+
+<select id="acl-selection">
+  <option value="">[no ACL selected]</option>
+  {{range .ACLs}}
+  <option value="{{.ACLID}}"{{if aclIDEQ $root.Current.ACLID .ACLID}} selected{{end}}>{{.Comment}}</option>
+  {{end}}
+</select>
+
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
+
+<input type="button" id="button-move" value="move" /> to
+<select id="acl-move-selection">
+  <option value="">[no ACL selected]</option>
+  {{range .ACLs}}
+  <option value="{{.ACLID}}">{{.Comment}}</option>
+  {{end}}
+</select>
+
 <table id="acl-rules" class="standard">
   <thead>
     <tr>
+      <th></th>
       <th>Rule ID</th>
       <th>Type</th>
       <th>Value</th>
@@ -23,7 +33,8 @@
   </thead>
   <tbody>
     {{range .Rules}}
-    <tr>
+    <tr id="acl-rules-row-{{.RuleID}}">
+      <td><input type="checkbox" class="checked-rules" data-id="{{.RuleID}}" /></td>
       <td class="min fixed uuid">{{.RuleID}}</td>
       <td class="min">{{.Type}}</td>
       <td class="max">{{.Value}}</td>

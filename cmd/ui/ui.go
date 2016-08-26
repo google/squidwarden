@@ -160,6 +160,26 @@ func reverse(s []string) []string {
 	return o
 }
 
+func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		j, err := f(r)
+		if err != nil {
+			log.Printf("Error in HTTP handler: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		b, err := json.Marshal(j)
+		if err != nil {
+			log.Printf("Error marshalling JSON reply: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if _, err := w.Write(b); err != nil {
+			log.Printf("Failed to write JSON reply: %v", err)
+		}
+	}
+}
+
 func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tmpl := template.Must(template.ParseFiles(path.Join(*templates, "page.html")))
@@ -181,6 +201,32 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 			return
 		}
 	}
+}
+
+var reUUID = regexp.MustCompile(`^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$`)
+
+func aclMoveHandler(r *http.Request) (interface{}, error) {
+	r.ParseForm()
+	dst := r.FormValue("destination")
+	var rules []string
+	for _, ruleID := range r.Form["rules[]"] {
+		if !reUUID.MatchString(ruleID) {
+			return nil, fmt.Errorf("%q is not valid rule ID", ruleID)
+		}
+		rules = append(rules, ruleID)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if _, err := db.Exec(fmt.Sprintf(`UPDATE aclrules SET acl_id=? WHERE rule_id IN ('%s')`, strings.Join(rules, "','")), dst); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return "OK", nil
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
@@ -243,7 +289,7 @@ SELECT rules.rule_id, rules.type, rules.value, rules.action, rules.comment
 FROM aclrules
 JOIN rules ON aclrules.rule_id=rules.rule_id
 WHERE aclrules.acl_id=?
-ORDER BY rules.comment`, string(id))
+ORDER BY rules.comment, rules.type, rules.value`, string(id))
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +405,7 @@ func main() {
 	r.HandleFunc("/", errWrap(rootHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
