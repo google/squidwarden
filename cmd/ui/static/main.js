@@ -59,7 +59,10 @@ function tailLogRow(data) {
     ul.appendChild(createButtonLI("Domain", {type: type, value: data.Domain}, data.Domain));
     ul.appendChild(createButtonLI("Host", {type: type, value: data.Host}, data.Host));
     if (data.Method != "CONNECT") {
-	ul.appendChild(createButtonLI("Path", {}, data.URL));
+	ul.appendChild(createButtonLI("Path", {
+	    type: "regex",
+	    value: "^" + data.URL.replace(/[.]/g, "[.]") + "$",
+	}, data.URL));
     }
     td.appendChild(ul);
     tr.appendChild(td);
@@ -120,7 +123,7 @@ function error(msg) {
     $("#error-messages").append(e);
 }
 
-function createButtonLI(name, data, value) {
+function createButtonLI(name, data, tip) {
     button = document.createElement("button");
     button.innerText = name;
     button.squidwarden_data = data;
@@ -128,7 +131,7 @@ function createButtonLI(name, data, value) {
     li = document.createElement("li");
     span = document.createElement("span");
     span.classList = ["tooltip"]
-    span.innerText = value;
+    span.innerText = tip;
     li.appendChild(button);
     li.appendChild(span);
     return li;
