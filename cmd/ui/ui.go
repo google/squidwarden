@@ -205,6 +205,35 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 
 var reUUID = regexp.MustCompile(`^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$`)
 
+func txWrap(f func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := f(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func aclNewHandler(r *http.Request) (interface{}, error) {
+	comment := r.FormValue("comment")
+	if comment == "" {
+		return nil, fmt.Errorf("won't create empty ACL name")
+	}
+	u := uuid.NewV4().String()
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`INSERT INTO acls(acl_id, comment) VALUES(?,?)`, u, comment); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func aclMoveHandler(r *http.Request) (interface{}, error) {
 	r.ParseForm()
 	dst := r.FormValue("destination")
@@ -215,18 +244,12 @@ func aclMoveHandler(r *http.Request) (interface{}, error) {
 		}
 		rules = append(rules, ruleID)
 	}
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	if _, err := db.Exec(fmt.Sprintf(`UPDATE aclrules SET acl_id=? WHERE rule_id IN ('%s')`, strings.Join(rules, "','")), dst); err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return "OK", nil
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(fmt.Sprintf(`UPDATE aclrules SET acl_id=? WHERE rule_id IN ('%s')`, strings.Join(rules, "','")), dst); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
@@ -406,6 +429,7 @@ func main() {
 	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
+	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)

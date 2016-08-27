@@ -2,12 +2,16 @@
 <script type="text/javascript" src="/static/acl.js"></script>
 <link rel="stylesheet" type="text/css" href="/static/acl.css" media="screen"/>
 
+Go to ACL:
 <select id="acl-selection">
   <option value="">[no ACL selected]</option>
   {{range .ACLs}}
   <option value="{{.ACLID}}"{{if aclIDEQ $root.Current.ACLID .ACLID}} selected{{end}}>{{.Comment}}</option>
   {{end}}
 </select>
+
+New ACL:
+<input type="text" id="new-acl" />
 
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>

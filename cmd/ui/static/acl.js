@@ -7,9 +7,22 @@ $(document).ready(function() {
     $("#button-move").click(move);
 
     $("body").keypress(keypressHandler);
+    $("#new-acl").keydown(function(e) {
+	if (e.keyCode != 13) { return; }
+	newACL($(this).val());
+    });
     $("table#acl-rules input.checked-rules").change(function() {checkedRulesChanged($(this))});
     changeSelected(1);
 });
+
+function newACL(name) {
+    $.post("/acl/new", {"comment": name})
+	.done(function() {
+	    console.log("success");
+	}).fail(function(o, text, error) {
+	    console.log("Failed!");
+	});
+}
 
 function checkedRulesChanged(me) {
     var ruleid = me.data("ruleid");
