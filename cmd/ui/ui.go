@@ -68,6 +68,13 @@ type acl struct {
 	ACLID   aclID
 	Comment string
 }
+type sourceID string
+type source struct {
+	SourceID sourceID
+	Source   string
+	Comment  string
+}
+
 type ruleID string
 type rule struct {
 	RuleID  ruleID
@@ -285,6 +292,83 @@ type group struct {
 	Comment string
 }
 
+func membersHandler(r *http.Request) (template.HTML, error) {
+	current := groupID(mux.Vars(r)["groupID"])
+
+	type maybeSource struct {
+		Active  bool
+		Comment string
+		Source  source
+	}
+	data := struct {
+		Groups  []group
+		Current group
+		Sources []maybeSource
+	}{}
+	{
+		var err error
+		data.Groups, data.Current, err = getGroups(current)
+		if err != nil {
+			return "", fmt.Errorf("getGroups: %v", err)
+		}
+	}
+	if len(current) > 0 {
+		active, err := getGroupSources(current)
+		if err != nil {
+			return "", err
+		}
+
+		sources, err := getSources()
+		if err != nil {
+			return "", err
+		}
+		for _, a := range sources {
+			e := maybeSource{Source: a}
+			e.Comment, e.Active = active[a.SourceID]
+			data.Sources = append(data.Sources, e)
+		}
+	}
+
+	tmpl := template.Must(template.New("members.html").Funcs(template.FuncMap{
+		"groupIDEQ": func(a, b groupID) bool { return a == b },
+	}).ParseFiles(path.Join(*templates, "members.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, &data); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func getGroups(currentID groupID) ([]group, group, error) {
+	var groups []group
+	var current group
+	rows, err := db.Query(`SELECT group_id, comment FROM groups ORDER BY comment`)
+	if err != nil {
+		return nil, group{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return nil, group{}, err
+		}
+		e := group{
+			GroupID: groupID(s),
+			Comment: c.String,
+		}
+		groups = append(groups, e)
+		if currentID == e.GroupID {
+			current = e
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, group{}, err
+	}
+	return groups, current, nil
+}
+
 func accessHandler(r *http.Request) (template.HTML, error) {
 	current := groupID(mux.Vars(r)["groupID"])
 
@@ -299,28 +383,9 @@ func accessHandler(r *http.Request) (template.HTML, error) {
 		ACLs    []maybeACL
 	}{}
 	{
-		rows, err := db.Query(`SELECT group_id, comment FROM groups ORDER BY comment`)
+		var err error
+		data.Groups, data.Current, err = getGroups(current)
 		if err != nil {
-			return "", err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var s string
-			var c sql.NullString
-			if err := rows.Scan(&s, &c); err != nil {
-				return "", err
-			}
-			e := group{
-				GroupID: groupID(s),
-				Comment: c.String,
-			}
-			data.Groups = append(data.Groups, e)
-			if current == e.GroupID {
-				data.Current = e
-			}
-		}
-		if err := rows.Err(); err != nil {
 			return "", err
 		}
 	}
@@ -374,6 +439,29 @@ func getGroupACLs(g groupID) (map[aclID]string, error) {
 	return acls, nil
 }
 
+func getGroupSources(g groupID) (map[sourceID]string, error) {
+	sources := make(map[sourceID]string)
+
+	rows, err := db.Query(`SELECT source_id, comment FROM members WHERE group_id=?`, string(g))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return nil, err
+		}
+		sources[sourceID(s)] = c.String
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
 func getACLs() ([]acl, error) {
 	var acls []acl
 	rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
@@ -398,6 +486,34 @@ func getACLs() ([]acl, error) {
 		return nil, err
 	}
 	return acls, nil
+}
+
+func getSources() ([]source, error) {
+	var sources []source
+	rows, err := db.Query(`SELECT source_id, source, comment FROM sources ORDER BY comment`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var src string
+		var c sql.NullString
+		if err := rows.Scan(&s, &src, &c); err != nil {
+			return nil, err
+		}
+		e := source{
+			SourceID: sourceID(s),
+			Source:   src,
+			Comment:  c.String,
+		}
+		sources = append(sources, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return sources, nil
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
@@ -586,6 +702,8 @@ func main() {
 	r.HandleFunc("/access/", errWrap(accessHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/access/{groupID}", errWrap(accessHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/access/{groupID}", errWrapJSON(accessUpdateHandler)).Methods("POST")
+	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)

@@ -1,0 +1,39 @@
+{{$root := .}}
+<script type="text/javascript" src="/static/members.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/members.css" media="screen"/>
+Go to group:
+<select id="members-group-selection">
+  <option value="">[no group selected]</option>
+  {{range .Groups}}
+  <option value="{{.GroupID}}"{{if groupIDEQ $root.Current.GroupID .GroupID}} selected{{end}}>{{.Comment}}</option>
+  {{end}}
+</select>
+
+
+{{if .Current.GroupID}}
+<table class="standard">
+  <thead>
+    <tr>
+      <th></th>
+      <th></th>
+      <th>ID</th>
+      <th>Addr</th>
+      <th>Source</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Sources}}
+    <tr>
+      <td></td>
+      <td class="min"><input type="checkbox" class="access-source-checked" data-aclid="{{.Source.SourceID}}" {{if .Active}}checked{{end}}/></td>
+      <td>{{.Source.SourceID}}</td>
+      <td>{{.Source.Source}}</td>
+      <td>{{.Source.Comment}}</td>
+      <td>{{.Comment}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+
