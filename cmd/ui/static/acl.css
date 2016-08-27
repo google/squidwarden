@@ -1,3 +1,6 @@
 table#acl-rules {
     width: 100%;
 }
+table#acl-rules tbody tr.selected {
+    background-color: #FFFF99;
+}

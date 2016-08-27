@@ -24,6 +24,7 @@
   <thead>
     <tr>
       <th></th>
+      <th></th>
       <th>Rule ID</th>
       <th>Type</th>
       <th>Value</th>
@@ -34,7 +35,8 @@
   <tbody>
     {{range .Rules}}
     <tr id="acl-rules-row-{{.RuleID}}">
-      <td><input type="checkbox" class="checked-rules" data-id="{{.RuleID}}" /></td>
+      <td class="acl-rules-row-selected" data-ruleid="{{.RuleID}}"></td>
+      <td><input type="checkbox" class="checked-rules" data-ruleid="{{.RuleID}}" /></td>
       <td class="min fixed uuid">{{.RuleID}}</td>
       <td class="min">{{.Type}}</td>
       <td class="max">{{.Value}}</td>
