@@ -65,20 +65,22 @@ const (
 type Config struct {
 	// Map from source to rules.
 	Sources map[string][]string
-	Rules   map[string]Rule
+	Rules   map[string]RuleAction
 }
 
 type Rule interface {
 	Check(proto, src, method, uri string) (bool, error)
-	Action() action
 }
 
-type DomainRule struct {
-	value  string
+type RuleAction struct {
+	rule   Rule
 	action action
 }
 
-func (d *DomainRule) Action() action { return d.action }
+type DomainRule struct {
+	value string
+}
+
 func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
 		return false, nil
@@ -104,11 +106,9 @@ func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 }
 
 type RegexRule struct {
-	action action
-	re     *regexp.Regexp
+	re *regexp.Regexp
 }
 
-func (d *RegexRule) Action() action { return d.action }
 func (d *RegexRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
 		return false, nil
@@ -120,11 +120,9 @@ func (d *RegexRule) Check(proto, src, method, uri string) (bool, error) {
 }
 
 type ExactRule struct {
-	value  string
-	action action
+	value string
 }
 
-func (d *ExactRule) Action() action { return d.action }
 func (d *ExactRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
 		return false, nil
@@ -133,11 +131,9 @@ func (d *ExactRule) Check(proto, src, method, uri string) (bool, error) {
 }
 
 type HTTPSDomainRule struct {
-	value  string
-	action action
+	value string
 }
 
-func (d *HTTPSDomainRule) Action() action { return d.action }
 func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "NONE" {
 		return false, nil
@@ -193,11 +189,11 @@ func decide(cfg *Config, proto, src, method, uri string) (bool, action, error) {
 		}
 		for _, ruleName := range rules {
 			rule := cfg.Rules[ruleName]
-			t, err := rule.Check(proto, src, method, uri)
+			t, err := rule.rule.Check(proto, src, method, uri)
 			if err != nil {
 				log.Printf("Failed to evaluate rule %q: %v", ruleName, err)
 			} else if t {
-				return true, rule.Action(), nil
+				return true, rule.action, nil
 			}
 		}
 	}
@@ -287,7 +283,7 @@ func logBlock(proto, src, method, urip string) error {
 func loadConfig() (*Config, error) {
 	cfg := &Config{
 		Sources: make(map[string][]string),
-		Rules:   make(map[string]Rule),
+		Rules:   make(map[string]RuleAction),
 	}
 	if err := func() error {
 		rows, err := db.Query(`
@@ -329,20 +325,20 @@ FROM rules
 			if err := rows.Scan(&rule, &typ, &val, &act); err != nil {
 				return err
 			}
-			var r Rule
+			r := RuleAction{action: action(act)}
 			switch typ {
 			case "https-domain":
-				r = &HTTPSDomainRule{value: val, action: action(act)}
+				r.rule = &HTTPSDomainRule{value: val}
 			case "domain":
-				r = &DomainRule{value: val, action: action(act)}
+				r.rule = &DomainRule{value: val}
 			case "exact":
-				r = &ExactRule{value: val, action: action(act)}
+				r.rule = &ExactRule{value: val}
 			case "regex":
 				x, err := regexp.Compile(val)
 				if err != nil {
 					return fmt.Errorf("compiling regex %q: %v", val, err)
 				}
-				r = &RegexRule{re: x, action: action(act)}
+				r.rule = &RegexRule{re: x}
 			default:
 				return fmt.Errorf("unknown rule type %q", typ)
 			}
