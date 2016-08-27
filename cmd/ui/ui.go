@@ -127,13 +127,8 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// TODO: look up 'misc'.
 	aclID := "db4c935f-fc5b-4868-ab32-c80459159c3e"
-	if err := func() error {
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		id := uuid.NewV4()
+	if err := txWrap(func(tx *sql.Tx) error {
+		id := uuid.NewV4().String()
 		log.Printf("Adding rule %q", id)
 		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, action, typ, value); err != nil {
 			return err
@@ -141,11 +136,8 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, aclID, id); err != nil {
 			return err
 		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
 		return nil
-	}(); err != nil {
+	}); err != nil {
 		log.Printf("Database trouble: %v", err)
 		http.Error(w, "DB problems", http.StatusInternalServerError)
 	}
