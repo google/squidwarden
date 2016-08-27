@@ -125,8 +125,8 @@ func allowHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing parameters", http.StatusBadRequest)
 		return
 	}
-	// TODO: look up 'misc'.
-	aclID := "db4c935f-fc5b-4868-ab32-c80459159c3e"
+	// TODO: look up the ID of the 'new' ACL.
+	aclID := "88bf513a-802f-450d-9fc4-b49eeabf1b8f"
 	if err := txWrap(func(tx *sql.Tx) error {
 		id := uuid.NewV4().String()
 		log.Printf("Adding rule %q", id)
