@@ -45,6 +45,11 @@ const (
 	actionBlock  = "block"
 	actionIgnore = "ignore"
 
+	typeDomain      = "domain"
+	typeHTTPSDomain = "https-domain"
+	typeExact       = "exact"
+	typeRegex       = "regex"
+
 	saneTime = "2006-01-02 15:04:05 MST"
 )
 
@@ -403,7 +408,12 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 
 		Current acl
 		Rules   []rule
-	}{}
+		Actions []string
+		Types   []string
+	}{
+		Actions: []string{actionAllow, actionIgnore},
+		Types:   []string{typeDomain, typeHTTPSDomain, typeRegex, typeExact},
+	}
 	{
 		rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
 		if err != nil {
