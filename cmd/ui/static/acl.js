@@ -59,6 +59,10 @@ function changeSelected(delta) {
     if (selected_rule < 0) {
 	selected_rule = 0;
     }
+    var c = $("#acl-rules tbody tr").length - 1;
+    if (selected_rule >= c) {
+	selected_rule = c;
+    }
     $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") td.acl-rules-row-selected").text(">");
 }
 
