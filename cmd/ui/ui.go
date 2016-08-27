@@ -244,6 +244,157 @@ func aclMoveHandler(r *http.Request) (interface{}, error) {
 	})
 }
 
+func accessUpdateHandler(r *http.Request) (interface{}, error) {
+	groupID := groupID(mux.Vars(r)["groupID"])
+	r.ParseForm()
+
+	var acls []string
+	for _, aclID := range r.Form["acls[]"] {
+		if !reUUID.MatchString(aclID) {
+			return nil, fmt.Errorf("%q is not valid acl ID", aclID)
+		}
+		acls = append(acls, aclID)
+	}
+
+	comments := r.Form["comments[]"]
+	if len(comments) != len(acls) {
+		return nil, fmt.Errorf("acl list and comment list length unequal. acl=%d comment=%d", len(acls), len(comments))
+	}
+
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM groupaccess WHERE group_id=?`, string(groupID)); err != nil {
+			return err
+		}
+		for n := range acls {
+			if _, err := tx.Exec(`INSERT INTO groupaccess(group_id, acl_id, comment) VALUES(?,?,?)`, string(groupID), acls[n], comments[n]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+type groupID string
+type group struct {
+	GroupID groupID
+	Comment string
+}
+
+func accessHandler(r *http.Request) (template.HTML, error) {
+	current := groupID(mux.Vars(r)["groupID"])
+
+	type maybeACL struct {
+		Active  bool
+		Comment string
+		ACL     acl
+	}
+	data := struct {
+		Groups  []group
+		Current group
+		ACLs    []maybeACL
+	}{}
+	{
+		rows, err := db.Query(`SELECT group_id, comment FROM groups ORDER BY comment`)
+		if err != nil {
+			return "", err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var s string
+			var c sql.NullString
+			if err := rows.Scan(&s, &c); err != nil {
+				return "", err
+			}
+			e := group{
+				GroupID: groupID(s),
+				Comment: c.String,
+			}
+			data.Groups = append(data.Groups, e)
+			if current == e.GroupID {
+				data.Current = e
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return "", err
+		}
+	}
+	if len(current) > 0 {
+		active, err := getGroupACLs(current)
+		if err != nil {
+			return "", err
+		}
+
+		acls, err := getACLs()
+		if err != nil {
+			return "", err
+		}
+		for _, a := range acls {
+			e := maybeACL{ACL: a}
+			e.Comment, e.Active = active[a.ACLID]
+			data.ACLs = append(data.ACLs, e)
+		}
+	}
+
+	tmpl := template.Must(template.New("access.html").Funcs(template.FuncMap{
+		"groupIDEQ": func(a, b groupID) bool { return a == b },
+	}).ParseFiles(path.Join(*templates, "access.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, &data); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func getGroupACLs(g groupID) (map[aclID]string, error) {
+	acls := make(map[aclID]string)
+
+	rows, err := db.Query(`SELECT acl_id, comment FROM groupaccess WHERE group_id=?`, string(g))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return nil, err
+		}
+		acls[aclID(s)] = c.String
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return acls, nil
+}
+
+func getACLs() ([]acl, error) {
+	var acls []acl
+	rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return nil, err
+		}
+		e := acl{
+			ACLID:   aclID(s),
+			Comment: c.String,
+		}
+		acls = append(acls, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return acls, nil
+}
+
 func aclHandler(r *http.Request) (template.HTML, error) {
 	current := aclID(mux.Vars(r)["aclID"])
 
@@ -422,6 +573,9 @@ func main() {
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
 	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
+	r.HandleFunc("/access/", errWrap(accessHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/access/{groupID}", errWrap(accessHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/access/{groupID}", errWrapJSON(accessUpdateHandler)).Methods("POST")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)

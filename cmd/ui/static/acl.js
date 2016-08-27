@@ -12,7 +12,7 @@ $(document).ready(function() {
 	newACL($(this).val());
     });
     $("table#acl-rules input.checked-rules").change(function() {checkedRulesChanged($(this))});
-    changeSelected(1);
+    changeSelected(0);
 });
 
 function newACL(name) {
