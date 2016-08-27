@@ -63,7 +63,18 @@ function changeSelected(delta) {
     if (selected_rule >= c) {
 	selected_rule = c;
     }
-    $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") td.acl-rules-row-selected").text(">");
+    o = $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") td.acl-rules-row-selected");
+    o.text(">");
+    var screen_pos = o[0].getBoundingClientRect().top;
+    var delta = 0;
+    var min = 20;
+    var max = window.innerHeight - 50;
+    if (screen_pos < min) {
+	delta = screen_pos - min;
+    } else if (screen_pos > max) {
+	delta = screen_pos - max;
+    }
+    window.scroll(0, window.scrollY+delta);
 }
 
 function move() {
