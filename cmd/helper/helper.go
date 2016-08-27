@@ -119,6 +119,19 @@ func (d *RegexRule) Check(proto, src, method, uri string) (bool, error) {
 	return false, nil
 }
 
+type ExactRule struct {
+	value  string
+	action action
+}
+
+func (d *ExactRule) Action() action { return d.action }
+func (d *ExactRule) Check(proto, src, method, uri string) (bool, error) {
+	if proto != "HTTP" {
+		return false, nil
+	}
+	return d.value == uri, nil
+}
+
 type HTTPSDomainRule struct {
 	value  string
 	action action
@@ -322,6 +335,8 @@ FROM rules
 				r = &HTTPSDomainRule{value: val, action: action(act)}
 			case "domain":
 				r = &DomainRule{value: val, action: action(act)}
+			case "exact":
+				r = &ExactRule{value: val, action: action(act)}
 			case "regex":
 				x, err := regexp.Compile(val)
 				if err != nil {

@@ -60,8 +60,8 @@ function tailLogRow(data) {
     ul.appendChild(createButtonLI("Host", {type: type, value: data.Host}, data.Host));
     if (data.Method != "CONNECT") {
 	ul.appendChild(createButtonLI("Path", {
-	    type: "regex",
-	    value: "^" + data.URL.replace(/[.]/g, "[.]") + "$",
+	    type: "exact",
+	    value: data.URL,
 	}, data.URL));
     }
     td.appendChild(ul);
