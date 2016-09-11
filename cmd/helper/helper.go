@@ -334,7 +334,7 @@ FROM rules
 			case "exact":
 				r.rule = &ExactRule{value: val}
 			case "regex":
-				x, err := regexp.Compile(val)
+				x, err := regexp.Compile("^" + val + "$")
 				if err != nil {
 					return fmt.Errorf("compiling regex %q: %v", val, err)
 				}
