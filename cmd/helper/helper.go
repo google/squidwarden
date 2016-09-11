@@ -93,8 +93,13 @@ func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 		return false, err
 	}
 
-	// Exact hostname.
+	// Exact hostname, meaning port matched too.
 	if p.Host == d.value {
+		return true, nil
+	}
+
+	// If rule doesn't have port, skip checking the port.
+	if host, _, _ := net.SplitHostPort(p.Host); host == d.value {
 		return true, nil
 	}
 

@@ -75,6 +75,14 @@ func TestDecisions(t *testing.T) {
 		{"HTTP", "128.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.co.uk/", false, false},
 
+		// domain for literals. Domain with missing port means any port.
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4/path/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:80/path/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:1234/path/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5/path/blah", false, false},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5:80/path/blah", false, false},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5:8080/path/blah", false, true},
+
 		// regex
 		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/url?foo=bar", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://www.google.co.uk/", false, false},
