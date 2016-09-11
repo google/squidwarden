@@ -38,6 +38,7 @@ import (
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/net/publicsuffix"
 )
 
 const (
@@ -84,6 +85,7 @@ type rule struct {
 	Comment string
 }
 
+// given a FQDN, return from the registered domain and on.
 func host2domain(h string) string {
 	if net.ParseIP(h) != nil {
 		return h
@@ -91,22 +93,14 @@ func host2domain(h string) string {
 	if hst, _, err := net.SplitHostPort(h); err == nil && net.ParseIP(hst) != nil {
 		return hst
 	}
-	tld := 1
-	for _, d := range []string{
-		".pp.se",
-		".co.uk",
-		".gov.uk",
-	} {
-		if strings.HasSuffix(h, d) {
-			tld = 2
-			break
-		}
+	suff, _ := publicsuffix.PublicSuffix(h)
+	ei := len(h) - len(suff) - 1
+	if ei < 0 {
+		return h
 	}
-	s := strings.Split(h, ".")
-	if len(s) <= tld {
-		return "." + h
-	}
-	return "." + strings.Join(s[len(s)-tld-1:], ".")
+	h2 := h[:ei]
+	si := strings.LastIndex(h2, ".") + 1
+	return "." + h2[si:] + "." + suff
 }
 
 func rootHandler(r *http.Request) (template.HTML, error) {

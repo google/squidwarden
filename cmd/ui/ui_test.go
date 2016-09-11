@@ -8,11 +8,13 @@ func TestHost2Domain(t *testing.T) {
 	for _, test := range []struct {
 		in, out string
 	}{
+		{"internal", "internal"},
 		{"example.com", ".example.com"},
 		{"www.example.com", ".example.com"},
 		{"www.foo.bar.example.com", ".example.com"},
 		{"example.pp.se", ".example.pp.se"},
 		{"www.example.co.uk", ".example.co.uk"},
+		{"www.example.com.br", ".example.com.br"},
 		{"1.2.3.4", "1.2.3.4"},
 		{"1.2.3.4:8080", "1.2.3.4"},
 	} {
