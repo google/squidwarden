@@ -15,6 +15,7 @@ $(document).ready(function() {
     // Rule selection.
     $("#acl-rules input.checked-rules").change(function() { checkedRulesChanged($(this)); });
     changeSelected(0);
+    $("#acl-move-selection").change(updateActionButtons);
 
     // Rule editing.
     var f = function() { ruleTextChanged($(this)); }
@@ -105,6 +106,7 @@ function checkedRulesChanged(me) {
     } else {
 	$("#acl-rules-row-"+ruleid).removeClass("selected");
     }
+    updateActionButtons();
 }
 
 function keyCheck() {
@@ -120,6 +122,10 @@ function updateActionButtons() {
 	o.removeAttr("disabled");
     } else {
 	o.attr("disabled", "disabled");
+    }
+    // Disable 'move' if no destination is set.
+    if ($("#acl-move-selection option:selected").index() === 0) {
+	$("#button-move").attr("disabled", "disabled");
     }
 }
 
