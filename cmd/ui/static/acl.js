@@ -33,6 +33,19 @@ function checkedRulesChanged(me) {
     }
 }
 
+function keyCheck() {
+    var o = $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") input.checked-rules");
+    o.prop("checked", !o.prop("checked"));
+    checkedRulesChanged(o);
+
+    o = $("#button-move");
+    if ($(".checked-rules:checked").length > 0) {
+	o.removeAttr("disabled");
+    } else {
+	o.attr("disabled", "disabled");
+    }
+}
+
 function keypressHandler(event) {
     switch (event.which) {
     case 106: // 'j'
@@ -42,9 +55,7 @@ function keypressHandler(event) {
 	changeSelected(-1);
 	break;
     case 120: // 'x'
-	var o = $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") input.checked-rules");
-	o.prop("checked", !o.prop("checked"));
-	checkedRulesChanged(o);
+	keyCheck();
 	break;
     default:
 	console.log("Keypress: " + event.which);

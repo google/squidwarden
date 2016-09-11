@@ -16,7 +16,7 @@ New ACL:
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
 
-<input type="button" id="button-move" value="move" /> to
+<input type="button" id="button-move" value="move" disabled /> to
 <select id="acl-move-selection">
   <option value="">[no ACL selected]</option>
   {{range .ACLs}}
