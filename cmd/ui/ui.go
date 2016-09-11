@@ -86,6 +86,7 @@ type rule struct {
 }
 
 // given a FQDN, return from the registered domain and on.
+// Also support IP literals and with ports.
 func host2domain(h string) string {
 	if net.ParseIP(h) != nil {
 		return h
@@ -93,14 +94,11 @@ func host2domain(h string) string {
 	if hst, _, err := net.SplitHostPort(h); err == nil && net.ParseIP(hst) != nil {
 		return hst
 	}
-	suff, _ := publicsuffix.PublicSuffix(h)
-	ei := len(h) - len(suff) - 1
-	if ei < 0 {
+	r, err := publicsuffix.EffectiveTLDPlusOne(h)
+	if err != nil {
 		return h
 	}
-	h2 := h[:ei]
-	si := strings.LastIndex(h2, ".") + 1
-	return "." + h2[si:] + "." + suff
+	return "." + r
 }
 
 func rootHandler(r *http.Request) (template.HTML, error) {
