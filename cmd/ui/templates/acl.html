@@ -42,20 +42,20 @@ New ACL:
       <td class="acl-rules-row-selected" data-ruleid="{{.RuleID}}"></td>
       <td><input type="checkbox" class="checked-rules" data-ruleid="{{.RuleID}}" /></td>
       <td class="min fixed uuid">{{.RuleID}}</td>
-      <td class="min"><select>
+      <td class="min"><select data-ruleid="{{.RuleID}}">
 	  {{$current := .}}
 	  {{range $root.Types}}
 	  <option value="{{.}}"{{if eq . $current.Type}} selected{{end}}>{{.}}</option>
 	  {{end}}
       </select></td>
-      <td class="max"><input type="text" class="maxwidth" value="{{.Value}}" /></td>
-      <td class="min"><select>
+      <td class="max"><input type="text" class="maxwidth" value="{{.Value}}" data-ruleid="{{.RuleID}}" /></td>
+      <td class="min"><select data-ruleid="{{.RuleID}}">
 	  {{$current := .}}
 	  {{range $root.Actions}}
 	  <option value="{{.}}"{{if eq . $current.Action}} selected{{end}}>{{.}}</option>
 	  {{end}}
       </select></td>
-      <td class="max"><input type="text" class="max" value="{{.Comment}}" /></td>
+      <td class="max"><input type="text" class="max" value="{{.Comment}}" data-ruleid="{{.RuleID}}" /></td>
     </tr>
     {{end}}
   </tbody>

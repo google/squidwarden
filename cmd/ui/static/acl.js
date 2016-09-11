@@ -11,9 +11,25 @@ $(document).ready(function() {
 	if (e.keyCode != 13) { return; }
 	newACL($(this).val());
     });
-    $("table#acl-rules input.checked-rules").change(function() {checkedRulesChanged($(this))});
+    $("#acl-rules input.checked-rules").change(function() { checkedRulesChanged($(this)); });
+    var f = function() { ruleTextChanged($(this)); }
+    $("#acl-rules input[type=text],#acl-rules select").change(f);
+    $("#acl-rules input[type=text]").keydown(f);
     changeSelected(0);
 });
+
+function ruleTextChanged(me) {
+    var ruleid = me.data("ruleid");
+
+    $("#acl-rules input.checked-rules").prop("checked", false);
+    $("#acl-rules tr").removeClass("selected");
+    $("#button-move").attr("disabled", "disabled");
+    $("#acl-rules input,#acl-rules select").each(function(index) {
+	if ($(this).data("ruleid") !== ruleid) {
+	    $(this).attr("disabled", "disabled");
+	}
+    });
+}
 
 function newACL(name) {
     $.post("/acl/new", {"comment": name})
