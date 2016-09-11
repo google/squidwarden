@@ -1,4 +1,5 @@
 var selected_rule = 0;
+var editing = false;
 
 $(document).ready(function() {
     $("#acl-selection").change(function(e) {
@@ -11,24 +12,54 @@ $(document).ready(function() {
 	if (e.keyCode != 13) { return; }
 	newACL($(this).val());
     });
+
+    // Rule selection.
     $("#acl-rules input.checked-rules").change(function() { checkedRulesChanged($(this)); });
+    changeSelected(0);
+
+    // Rule editing.
     var f = function() { ruleTextChanged($(this)); }
     $("#acl-rules input[type=text],#acl-rules select").change(f);
     $("#acl-rules input[type=text]").keydown(f);
-    changeSelected(0);
+    $("#button-save").click(save);
 });
+
+function get_ruleid_by_index(n) {
+    return $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") input.checked-rules").data("ruleid");
+}
+
+function save() {
+    var id = get_ruleid_by_index(selected_rule);
+    console.log(id);
+}
 
 function ruleTextChanged(me) {
     var ruleid = me.data("ruleid");
 
+    // Remove all checkmarks.
     $("#acl-rules input.checked-rules").prop("checked", false);
     $("#acl-rules tr").removeClass("selected");
     $("#button-move").attr("disabled", "disabled");
+
+    // Disable all but active rule for editing.
     $("#acl-rules input,#acl-rules select").each(function(index) {
 	if ($(this).data("ruleid") !== ruleid) {
 	    $(this).attr("disabled", "disabled");
 	}
     });
+
+    // Set active.
+    $("#acl-rules input.checked-rules").each(function(index) {
+	if ($(this).data("ruleid") === ruleid) {
+	    changeSelected(index-selected_rule);
+	}
+    });
+
+    // Enable save button.
+    $("#button-save").removeAttr("disabled");
+
+    // Disable active-changing.
+    editing = true;
 }
 
 function newACL(name) {
@@ -80,6 +111,9 @@ function keypressHandler(event) {
 }
 
 function changeSelected(delta) {
+    if (editing) {
+	return;
+    }
     var o;
     $("#acl-rules tbody tr:nth-child("+(selected_rule+1)+") td.acl-rules-row-selected").text("");
     selected_rule += delta;
