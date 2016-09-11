@@ -30,7 +30,14 @@ function get_ruleid_by_index(n) {
 
 function save() {
     var id = get_ruleid_by_index(selected_rule);
-    console.log(id);
+    var data = {
+	"rule_id": id,
+	"type": $(".acl-rules-rule-type[data-ruleid='"+id+"']").val(),
+	"value": $(".acl-rules-rule-value[data-ruleid='"+id+"']").val(),
+	"action": $(".acl-rules-rule-action[data-ruleid='"+id+"']").val(),
+	"comment": $(".acl-rules-rule-comment[data-ruleid='"+id+"']").val()
+    };
+    console.log(data);
 }
 
 function ruleTextChanged(me) {
