@@ -516,6 +516,27 @@ func getSources() ([]source, error) {
 	return sources, nil
 }
 
+func ruleDeleteHandler(r *http.Request) (interface{}, error) {
+	r.ParseForm()
+	var rules []string
+	for _, ruleID := range r.Form["rules[]"] {
+		if !reUUID.MatchString(ruleID) {
+			return nil, fmt.Errorf("%q is not valid rule ID", ruleID)
+		}
+		rules = append(rules, ruleID)
+	}
+	log.Printf("Deleting %s", strings.Join(rules, ", "))
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM aclrules WHERE rule_id IN ('%s')`, strings.Join(rules, "','"))); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM rules WHERE rule_id IN ('%s')`, strings.Join(rules, "','"))); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func ruleEditHandler(r *http.Request) (interface{}, error) {
 	ruleID := ruleID(mux.Vars(r)["ruleID"])
 	r.ParseForm()
@@ -718,19 +739,20 @@ func main() {
 	log.Printf("Running...")
 	r := mux.NewRouter()
 	r.HandleFunc("/", errWrap(rootHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
-	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
-	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
 	r.HandleFunc("/access/", errWrap(accessHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/access/{groupID}", errWrap(accessHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/access/{groupID}", errWrapJSON(accessUpdateHandler)).Methods("POST")
-	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
+	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
+	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
+	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
+	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))

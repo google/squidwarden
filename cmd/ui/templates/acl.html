@@ -16,16 +16,24 @@ New ACL:
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
 
-<input type="button" id="button-move" value="move" disabled /> to
-<select id="acl-move-selection">
-  <option value="">[no ACL selected]</option>
-  {{range .ACLs}}
-  <option value="{{.ACLID}}">{{.Comment}}</option>
-  {{end}}
-</select>
+<table id="acl-commands">
+  <tbody>
+    <tr>
+      <td>
+	<select id="acl-move-selection">
+	  <option value="">[no ACL selected]</option>
+	  {{range .ACLs}}
+	  <option value="{{.ACLID}}">{{.Comment}}</option>
+	  {{end}}
+	</select>
+      </td>
+      <td><input type="button" class="button-check-action" id="button-move" value="move" disabled /></td>
+    </tr>
+    <tr><td></td><td><input type="button" class="button-check-action" id="button-delete" value="delete" disabled /></td></tr>
+    <tr><td></td><td><input type="button" id="button-save" value="save" disabled /></td></tr>
+  </tbody>
+</table>
 
-<br/>
-<input type="button" id="button-save" value="save" disabled />
 
 <table id="acl-rules" class="standard">
   <thead>
