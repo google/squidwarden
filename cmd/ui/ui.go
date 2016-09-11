@@ -516,6 +516,29 @@ func getSources() ([]source, error) {
 	return sources, nil
 }
 
+func ruleEditHandler(r *http.Request) (interface{}, error) {
+	ruleID := ruleID(mux.Vars(r)["ruleID"])
+	r.ParseForm()
+
+	// Data
+	data := struct {
+		action  string
+		typ     string
+		value   string
+		comment string
+	}{
+		action:  r.FormValue("action"),
+		typ:     r.FormValue("type"),
+		value:   r.FormValue("value"),
+		comment: r.FormValue("comment"),
+	}
+	log.Printf("Updating %q with %+v", ruleID, data)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		_, err := tx.Exec(`UPDATE rules SET type=?, value=?, action=?, comment=? WHERE rule_id=?`, data.typ, data.value, data.action, data.comment, string(ruleID))
+		return err
+	})
+}
+
 func aclHandler(r *http.Request) (template.HTML, error) {
 	current := aclID(mux.Vars(r)["aclID"])
 
@@ -697,6 +720,7 @@ func main() {
 	r.HandleFunc("/", errWrap(rootHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
 	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
 	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
 	r.HandleFunc("/access/", errWrap(accessHandler)).Methods("GET", "HEAD")
