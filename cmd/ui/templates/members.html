@@ -10,6 +10,10 @@ Go to group:
 </select>
 
 <br/>
+New Group:
+<input type="text" id="action-new-group" />
+
+<br/>
 {{if .Current.GroupID}}
 <button id="action-save" disabled>Save</button>
 
@@ -18,7 +22,7 @@ Go to group:
   <thead>
     <tr>
       <th></th>
-      <th></th>
+      <th>Member</th>
       <th>ID</th>
       <th>Addr</th>
       <th>Source</th>

@@ -7,6 +7,10 @@ $(document).ready(function() {
     });
     $(".members-source-checked,.members-comment").change(changeAnything);
     $(".members-comment").keydown(changeAnything);
+    $("#action-new-group").keydown(function(e) {
+	if (e.keyCode != 13) { return; }
+	newGroup($(this).val());
+    });
     $("#action-save").click(btnSave);
     $("#action-new").click(btnCreate);
     $(".action-delete").click(btnDelete);
@@ -42,6 +46,15 @@ function btnCreate() {
 	console.log("Success!");
 	window.location.reload();
     });
+}
+
+function newGroup(name) {
+    doPost("/group/new",
+	   {"comment": name},
+	   function(response) {
+	       console.log("Success!", response);
+	       //window.location.reload();
+	   });
 }
 
 function btnSave() {

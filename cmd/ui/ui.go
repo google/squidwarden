@@ -296,6 +296,21 @@ func aclNewHandler(r *http.Request) (interface{}, error) {
 	})
 }
 
+func groupNewHandler(r *http.Request) (interface{}, error) {
+	comment := r.FormValue("comment")
+	if comment == "" {
+		return nil, fmt.Errorf("won't create with empty group name")
+	}
+	u := uuid.NewV4().String()
+	resp := struct{ Group string }{Group: u}
+	return &resp, txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`INSERT INTO groups(group_id, comment) VALUES(?,?)`, u, comment); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func aclMoveHandler(r *http.Request) (interface{}, error) {
 	r.ParseForm()
 	dst := r.FormValue("destination")
@@ -955,6 +970,7 @@ func main() {
 	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
 	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
 	r.HandleFunc("/source/{sourceID}", errWrapJSON(sourceDeleteHandler)).Methods("DELETE")
+	r.HandleFunc("/group/new", errWrapJSON(groupNewHandler)).Methods("POST")
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
