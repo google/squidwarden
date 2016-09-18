@@ -46,7 +46,72 @@ $ sudo -u proxy ./bin/ui \
     -static=src/github.com/google/squidwarden/cmd/ui/static \
     -addr=:8081 \
     -squidlog=/var/log/squid3/proxyacl.blocklog \
+    -https_only=false \
     -db=/var/spool/squid3/proxyacl.sqlite
 ```
 
-Then point browser to http://localhost:8081/ and get started.
+Then point browser to [the UI](http://localhost:8081/) and get started.
+
+## Run UI via nginx
+
+It can be a good idea to run through a real web server such as nginx,
+so that you don't have to remember which port it runs on. It also makes
+it easier to set up TLS.
+
+```
+$ sudo apt-get install nginx
+$ sudo dd of=/etc/nginx/conf.d/squidwarden.conf <<EOF
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  '' close;
+}
+server {
+    listen 80;
+    listen [::]:80;
+    server_name squidwarden.example.com;
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "$connection_upgrade";
+    }
+}
+EOF
+$ sudo systemctl restart nginx.service
+$ sudo -u proxy ./bin/ui \
+    -templates=src/github.com/google/squidwarden/cmd/ui/templates \
+    -static=src/github.com/google/squidwarden/cmd/ui/static \
+    -addr=127.0.0.1:8081 \
+    -https_only=false \
+    -squidlog=/var/log/squid3/proxyacl.blocklog \
+    -db=/var/spool/squid3/proxyacl.sqlite
+```
+
+## Run UI with fastcgi nginx
+
+FastCGI is nice, but doesn't support websockets. When `-fcgi` is
+supplied, squidwarden will therefore not use websockets.
+
+```
+$ sudo apt-get install nginx
+$ sudo dd of=/etc/nginx/conf.d/squidwarden.conf <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name squidwarden.example.com;
+    location / {
+      include fastcgi_params;
+      fastcgi_pass unix:/var/spool/squid3/squidwarden.sock;
+    }
+}
+EOF
+$ sudo systemctl restart nginx.service
+$ sudo -u proxy ./bin/ui \
+    -templates=src/github.com/google/squidwarden/cmd/ui/templates \
+    -static=src/github.com/google/squidwarden/cmd/ui/static \
+    -addr=127.0.0.1:8081 \
+    -fcgi=/var/spool/squid3/squidwarden.sock \
+    -https_only=false \
+    -squidlog=/var/log/squid3/proxyacl.blocklog \
+    -db=/var/spool/squid3/proxyacl.sqlite
+```

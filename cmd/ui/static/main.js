@@ -1,5 +1,5 @@
 $(document).ready(function() {
-    if (window.WebSocket) {
+    if (window.WebSocket && $("#websockets").val() == "true") {
 	$("button#refresh-tail").css("display", "none");
 	$("button#pause-scroll").click(pauseScroll);
 	streamTail();
@@ -139,8 +139,6 @@ function createButtonLI(name, data, tip) {
 
 function buttonClick(btn) {
     var data = $.extend({}, btn.target.squidwarden_data, {"action": $("#action").val()});
-    console.log("Button click ", btn);
-    console.log("Button data ",data);
     doPost("/rule/new",
 	   data,
            function(resp) {

@@ -29,7 +29,9 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/fcgi"
 	"net/url"
+	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -59,12 +61,14 @@ const (
 )
 
 var (
-	templates = flag.String("templates", ".", "Template dir")
-	staticDir = flag.String("static", ".", "Static dir")
-	addr      = flag.String("addr", ":8080", "Address to listen to.")
-	squidLog  = flag.String("squidlog", "", "Path to squid log.")
-	dbFile    = flag.String("db", "", "sqlite database.")
-	httpsOnly = flag.Bool("https_only", true, "Only work with HTTPS.")
+	templates  = flag.String("templates", ".", "Template dir")
+	staticDir  = flag.String("static", ".", "Static dir")
+	addr       = flag.String("addr", ":8080", "Address to listen to.")
+	socketPath = flag.String("fcgi", "", "UNIX socket to listen to.")
+	squidLog   = flag.String("squidlog", "", "Path to squid log.")
+	dbFile     = flag.String("db", "", "sqlite database.")
+	httpsOnly  = flag.Bool("https_only", true, "Only work with HTTPS.")
+	websockets = flag.Bool("websockets", true, "Enable websockets (-fcgi turns them off).")
 
 	db *sql.DB
 )
@@ -240,21 +244,24 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 				}
 			}
 			// Check that it's not enctype evilness.
-			{
+			if false {
 				hn := "Content-Type"
 				h := r.Header[hn]
-				if len(h) != 1 {
+				if len(h) == 0 {
 					return "", errHTTP{
-						internal: fmt.Errorf("possible XSRF attack: Want 1 %s, got %q", hn, h),
-						external: fmt.Sprintf("missing or duplicate %s header", hn),
+						internal: fmt.Errorf("possible XSRF attack. got %q", h),
+						external: fmt.Sprintf("missing %s header", hn),
 						code:     http.StatusBadRequest,
 					}
 				}
-				if got, want := h[0], "application/x-www-form-urlencoded; "; !strings.HasPrefix(got, want) {
-					return "", errHTTP{
-						internal: fmt.Errorf("possible XSRF attack: want %s prefixed %q, got %q", hn, want, got),
-						external: fmt.Sprintf("bad %s header", hn),
-						code:     http.StatusBadRequest,
+				// fcgi seems to sometimes generate duplicate headers.
+				for _, got := range h {
+					if want := "application/x-www-form-urlencoded; "; !strings.HasPrefix(got, want) {
+						return "", errHTTP{
+							internal: fmt.Errorf("possible XSRF attack: want %s prefixed %q, got %q", hn, want, h),
+							external: fmt.Sprintf("bad %s header", hn),
+							code:     http.StatusBadRequest,
+						}
 					}
 				}
 			}
@@ -312,15 +319,17 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 			return
 		}
 		if err := tmpl.Execute(w, struct {
-			Now     string
-			Version string
-			CSRF    string
-			Content template.HTML
+			Now        string
+			Version    string
+			Websockets bool
+			CSRF       string
+			Content    template.HTML
 		}{
-			Now:     time.Now().UTC().Format(saneTime),
-			Version: version,
-			CSRF:    csrf.Token(r),
-			Content: h,
+			Now:        time.Now().UTC().Format(saneTime),
+			Version:    version,
+			Websockets: *websockets && *socketPath == "",
+			CSRF:       csrf.Token(r),
+			Content:    h,
 		}); err != nil {
 			log.Printf("Error in main handler: %v", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1243,6 +1252,8 @@ func makeRouter() *mux.Router {
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 
+	rget.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(*staticDir))))
+
 	pg := "{groupID:" + u + "}"
 	pa := "{aclID:" + u + "}"
 	pr := "{ruleID:" + u + "}"
@@ -1298,12 +1309,25 @@ func main() {
 	if flag.NArg() > 0 {
 		log.Fatalf("Extra args on cmdline: %q", flag.Args())
 	}
+
+	var sock net.Listener
+	if *socketPath != "" {
+		os.Remove(*socketPath)
+		var err error
+		sock, err = net.Listen("unix", *socketPath)
+		if err != nil {
+			log.Fatalf("Unable to listen to socket %q: %v", *socketPath, err)
+		}
+		defer sock.Close()
+		if err = os.Chmod(*socketPath, 0666); err != nil {
+			log.Fatal("Unable to chmod socket: ", err)
+		}
+	}
+
 	openDB()
 
 	r := makeRouter()
 
-	fs := http.FileServer(http.Dir(*staticDir))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
 	http.Handle("/", csrf.Protect(getCSRFKey(),
 		csrf.FieldName("csrf"),
 		csrf.CookieName("csrf"),
@@ -1312,5 +1336,16 @@ func main() {
 		csrf.ErrorHandler(csrfFail{}))(r))
 
 	log.Printf("Running...")
+
+	// Start fastcgi.
+	if *socketPath != "" {
+		go func() {
+			if err := fcgi.Serve(sock, r); err != nil {
+				log.Fatalf("Failed to start serving fcgi: %v", err)
+			}
+		}()
+	}
+
+	// Start normal port.
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
