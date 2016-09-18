@@ -158,6 +158,9 @@ function ajaxError(o, text, error) {
 	msg = "Network error";
     } else if (o.readyState == 4) {
 	msg = text + ", " + error;
+	if ('error' in o.responseJSON) {
+	    msg = msg + ": " + o.responseJSON.error;
+	}
     } else {
 	msg = "unknown error type for readyState " + o.readyState;
     }

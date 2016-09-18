@@ -195,6 +195,7 @@ func (e errHTTP) Error() string {
 
 func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		status := http.StatusOK
 		j, err := func() (interface{}, error) {
 			// Check that it was requested from JS.
 			{
@@ -239,12 +240,17 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
 				log.Printf("HTTP error. Internal: %q External: %q Code: %d", e.internal, e.external, e.code)
-				http.Error(w, e.external, e.code)
+				j = &struct {
+					Error string `json:"error"`
+				}{
+					Error: e.external,
+				}
+				status = e.code
 			} else {
 				log.Printf("Error in HTTP handler: %v", err)
 				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
 			}
-			return
 		}
 		b, err := json.Marshal(j)
 		if err != nil {
@@ -253,6 +259,7 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
 		if _, err := w.Write(b); err != nil {
 			log.Printf("Failed to write JSON reply: %v", err)
 		}
