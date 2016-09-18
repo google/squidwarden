@@ -1,1 +1,3 @@
 *~
+cmd/ui/static.go
+cmd/ui/templates.go

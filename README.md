@@ -16,7 +16,9 @@ TODO: This procedure is untested.
 
 ```
 $ sudo apt install squid3
-$ ./go get github.com/google/squidwarden
+$ go get github.com/google/squidwarden
+$ go generate github.com/google/squidwarden/...
+$ go build github.com/google/squidwarden/cmd/ui
 $ sudo mv /etc/squid3/squid.conf{,.dist}
 $ cat <<EOF > /etc/squid3/squid.conf
 # TODO: Not all of these settings may be needed.
@@ -42,8 +44,6 @@ $ sudo cp bin/helper /usr/local/bin/proxyacl
 $ sudo sqlite3 /var/spool/squid3/proxyacl.sqlite < src/github.com/google/squidwarden/sqlite.schema
 $ sudo systemctl restart squid3
 $ sudo -u proxy ./bin/ui \
-    -templates=src/github.com/google/squidwarden/cmd/ui/templates \
-    -static=src/github.com/google/squidwarden/cmd/ui/static \
     -addr=:8081 \
     -squidlog=/var/log/squid3/proxyacl.blocklog \
     -https_only=false \

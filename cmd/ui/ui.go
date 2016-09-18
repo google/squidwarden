@@ -61,8 +61,8 @@ const (
 )
 
 var (
-	templates  = flag.String("templates", ".", "Template dir")
-	staticDir  = flag.String("static", ".", "Static dir")
+	templates  = flag.String("templates", "templates", "Template dir")
+	staticDir  = flag.String("static", "static", "Static dir")
 	addr       = flag.String("addr", ":8080", "Address to listen to.")
 	socketPath = flag.String("fcgi", "", "UNIX socket to listen to.")
 	squidLog   = flag.String("squidlog", "", "Path to squid log.")
@@ -110,8 +110,20 @@ func host2domain(h string) string {
 	return "." + r
 }
 
+func getTemplate(fn string, fm template.FuncMap) *template.Template {
+	b, err := readFile(path.Join(*templates, fn))
+	if err != nil {
+		panic(err)
+	}
+	tmpl := template.New(fn)
+	if fm != nil {
+		tmpl.Funcs(fm)
+	}
+	return template.Must(tmpl.Parse(string(b)))
+}
+
 func rootHandler(r *http.Request) (template.HTML, error) {
-	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "main.html")))
+	tmpl := getTemplate("main.html", nil)
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, nil); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -120,9 +132,16 @@ func rootHandler(r *http.Request) (template.HTML, error) {
 }
 
 func aboutHandler(r *http.Request) (template.HTML, error) {
-	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "about.html")))
+	tmpl := getTemplate("about.html", nil)
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, &struct{ Version string }{Version: version}); err != nil {
+	if err := tmpl.Execute(&buf, &struct {
+		Version   string
+		MemFiles  bool
+		DiskFiles bool
+	}{Version: version,
+		MemFiles:  *memFiles,
+		DiskFiles: *diskFiles,
+	}); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
 	}
 	return template.HTML(buf.String()), nil
@@ -303,10 +322,10 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 		defer func() {
 			if err := recover(); err != nil {
 				log.Printf("PANIC: %v", err)
-				http.Error(w, "Bleh", http.StatusInternalServerError)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
-		tmpl := template.Must(template.ParseFiles(path.Join(*templates, "page.html")))
+		tmpl := getTemplate("page.html", nil)
 		h, err := f(r)
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
@@ -482,9 +501,7 @@ func membersHandler(r *http.Request) (template.HTML, error) {
 		}
 	}
 
-	tmpl := template.Must(template.New("members.html").Funcs(template.FuncMap{
-		"groupIDEQ": func(a, b groupID) bool { return a == b },
-	}).ParseFiles(path.Join(*templates, "members.html")))
+	tmpl := getTemplate("members.html", template.FuncMap{"groupIDEQ": func(a, b groupID) bool { return a == b }})
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -559,9 +576,7 @@ func accessHandler(r *http.Request) (template.HTML, error) {
 		}
 	}
 
-	tmpl := template.Must(template.New("access.html").Funcs(template.FuncMap{
-		"groupIDEQ": func(a, b groupID) bool { return a == b },
-	}).ParseFiles(path.Join(*templates, "access.html")))
+	tmpl := getTemplate("access.html", template.FuncMap{"groupIDEQ": func(a, b groupID) bool { return a == b }})
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -967,7 +982,7 @@ ORDER BY acls.comment`, string(current))
 	}
 
 	// Render output
-	tmpl := template.Must(template.New("rule.html").ParseFiles(path.Join(*templates, "rule.html")))
+	tmpl := getTemplate("rule.html", nil)
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -1028,7 +1043,7 @@ ORDER BY groups.comment`, string(current))
 	}
 
 	// Render output
-	tmpl := template.Must(template.New("source.html").ParseFiles(path.Join(*templates, "source.html")))
+	tmpl := getTemplate("source.html", nil)
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -1085,9 +1100,7 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 		data.Rules = r
 	}
 
-	tmpl := template.Must(template.New("acl.html").Funcs(template.FuncMap{
-		"aclIDEQ": func(a, b aclID) bool { return a == b },
-	}).ParseFiles(path.Join(*templates, "acl.html")))
+	tmpl := getTemplate("acl.html", template.FuncMap{"aclIDEQ": func(a, b aclID) bool { return a == b }})
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -1252,7 +1265,7 @@ func makeRouter() *mux.Router {
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 
-	rget.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(*staticDir))))
+	rget.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(&myDir{*staticDir})))
 
 	pg := "{groupID:" + u + "}"
 	pa := "{aclID:" + u + "}"
@@ -1324,6 +1337,14 @@ func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
 		log.Fatalf("Extra args on cmdline: %q", flag.Args())
+	}
+
+	if _, err := readFile(path.Join(*staticDir, "loading.gif")); err != nil {
+		log.Fatalf("Couldn't find 'loading.gif'. Did you 'go generate'? -mem_files=%t -disk_files=%t -static=%q", *memFiles, *diskFiles, *staticDir)
+	}
+
+	if _, err := readFile(path.Join(*templates, "page.html")); err != nil {
+		log.Fatalf("Couldn't find 'page.html'. -mem_files=%t -disk_files=%t -templates=%q", *memFiles, *diskFiles, *templates)
 	}
 
 	var sock net.Listener
