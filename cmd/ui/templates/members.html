@@ -36,13 +36,14 @@ Go to group:
       <td><button id="action-new">Create</button></td>
     </tr>
     {{range .Sources}}
-    <tr>
+    <tr id="members-row-{{.Source.SourceID}}">
       <td></td>
       <td class="min"><input type="checkbox" class="members-source-checked" data-sourceid="{{.Source.SourceID}}"{{if .Active}} checked{{end}} /></td>
       <td>{{.Source.SourceID}}</td>
       <td>{{.Source.Source}}</td>
       <td>{{.Source.Comment}}</td>
-      <td><input type="text" class="members-comment" data-sourceid="{{.Source.SourceID}}" value="{{.Comment}}" /></td>
+      <td><input type="text" class="members-comment" data-sourceid="{{.Source.SourceID}}" value="{{.Comment}}" {{if .Active}}{{else}}disabled {{end}}/></td>
+      <td><button class="action-delete" data-sourceid="{{.Source.SourceID}}" {{if .Active}}disabled{{end}}>Delete</button></td>
     </tr>
     {{end}}
   </tbody>

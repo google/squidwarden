@@ -156,12 +156,27 @@ func reverse(s []string) []string {
 	return o
 }
 
+type errHTTP struct {
+	external string
+	internal string
+	code     int
+}
+
+func (e errHTTP) Error() string {
+	return e.external
+}
+
 func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		j, err := f(r)
 		if err != nil {
-			log.Printf("Error in HTTP handler: %v", err)
-			http.Error(w, "Internal error", http.StatusInternalServerError)
+			if e, ok := err.(errHTTP); ok {
+				log.Printf("HTTP error. Internal: %s External: %s Code: %d", e.internal, e.external, e.code)
+				http.Error(w, e.external, e.code)
+			} else {
+				log.Printf("Error in HTTP handler: %v", err)
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+			}
 			return
 		}
 		b, err := json.Marshal(j)
@@ -529,6 +544,26 @@ func assertUUID(s string) string {
 func assertGroupID(s string) groupID   { return groupID(assertUUID(s)) }
 func assertSourceID(s string) sourceID { return sourceID(assertUUID(s)) }
 
+func sourceDeleteHandler(r *http.Request) (interface{}, error) {
+	sid := assertSourceID(mux.Vars(r)["sourceID"])
+	log.Printf("Deleting %s", sid)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM sources WHERE source_id=?`, string(sid)); err != nil {
+			r := tx.QueryRow(`SELECT COUNT(*) FROM members WHERE source_id=?`, string(sid))
+			var n uint64
+			if e := r.Scan(&n); e != nil {
+				log.Printf("Failed to find member count: %v", e)
+				return err
+			}
+			return errHTTP{
+				external: fmt.Sprintf("source still used by %d groups", n),
+				code:     http.StatusBadRequest,
+			}
+		}
+		return nil
+	})
+}
+
 func membersNewHandler(r *http.Request) (interface{}, error) {
 	gid := assertGroupID(mux.Vars(r)["groupID"])
 	r.ParseForm()
@@ -542,6 +577,7 @@ func membersNewHandler(r *http.Request) (interface{}, error) {
 		comment:       r.FormValue("comment"),
 	}
 	u := assertSourceID(uuid.NewV4().String())
+	log.Printf("Creating %s in %s", u, gid)
 	return "OK", txWrap(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`INSERT INTO sources(source_id, source, comment) VALUES(?,?,?)`, string(u), data.source, data.sourceComment); err != nil {
 			return err
@@ -812,6 +848,7 @@ func main() {
 	r.HandleFunc("/members/{groupID}/members", errWrapJSON(membersmembersHandler)).Methods("POST")
 	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
 	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
+	r.HandleFunc("/source/{sourceID}", errWrapJSON(sourceDeleteHandler)).Methods("DELETE")
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))

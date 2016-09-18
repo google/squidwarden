@@ -9,7 +9,15 @@ $(document).ready(function() {
     $(".members-comment").keydown(changeAnything);
     $("#action-save").click(btnSave);
     $("#action-new").click(btnCreate);
+    $(".action-delete").click(btnDelete);
 });
+
+function btnDelete() {
+    var sourceID = $(this).data("sourceid");
+    doDelete("/source/" + sourceID, {}, function() {
+	$("#members-row-"+sourceID).remove();
+    });
+}
 
 function loading(b) {
     if (b) {
@@ -20,7 +28,16 @@ function loading(b) {
 }
 
 function changeAnything() {
-    $("#action-save").prop("disabled", "");
+    $("#action-save").prop("disabled", false);
+
+    $(".members-source-checked:checked").each(function() {
+	var sid = $(this).data("sourceid");
+	$(".members-comment[data-sourceid="+sid+"]").prop("disabled", false);
+    });
+    $(".members-source-checked:not(:checked)").each(function() {
+	var sid = $(this).data("sourceid");
+	$(".members-comment[data-sourceid="+sid+"]").prop("disabled", true);
+    });
 }
 
 function btnCreate() {
@@ -52,6 +69,18 @@ function btnSave() {
 	   function() {
 	       console.log("Update succeeded. Group now has", sources.length, "members");
 	       $("#action-save").prop("disabled", true);
+	       // Only allow delete for unchecked rules.
+	       $(".members-source-checked:not(:checked)").each(function(index) {
+		   var sid = $(this).data("sourceid");
+		   $("button[data-sourceid="+sid+"]").prop("disabled", false);
+		   $(".members-comment[data-sourceid="+sid+"]").val("");
+		   $(".members-comment[data-sourceid="+sid+"]").prop("disabled", true);
+	       });
+	       $(".members-source-checked:checked").each(function(index) {
+		   var sid = $(this).data("sourceid");
+		   $("button[data-sourceid="+sid+"]").prop("disabled", true);
+		   $(".members-comment[data-sourceid="+sid+"]").prop("disabled", false);
+	       });
 	   },
 	   function(o, text, error) {
 	       console.log("Update failed");
@@ -70,4 +99,24 @@ function doPost(url, data, success, fail) {
 	    loading(false);
 	    if (fail != undefined) { fail(o, text, error); }
 	});
+}
+
+function doDelete(url, data, success, fail) {
+    loading(true);
+    $.ajax({
+	method: "DELETE",
+	url: url,
+	data: data,
+	"success": function() {
+	    loading(false);
+	    console.log("DELETE success", success);
+	    if (success != undefined) { success(); }
+	},
+	"error": function(o, text, error) {
+	    console.log("DELETE failed", o, text, error);
+	    alert(o.responseText);
+	    loading(false);
+	    if (fail != undefined) { fail(o, text, error); }
+	}
+    });
 }
