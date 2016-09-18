@@ -2,7 +2,8 @@ CREATE TABLE sources(
        source_id TEXT NOT NULL,
        source TEXT NOT NULL,
        comment TEXT,
-       PRIMARY KEY(source_id)
+       PRIMARY KEY(source_id),
+       UNIQUE(source)
 );
 
 CREATE TABLE groups(
@@ -41,7 +42,7 @@ CREATE TABLE rules(
        action TEXT NOT NULL,
        comment TEXT,
        PRIMARY KEY(rule_id),
-       UNIQUE(type,value)
+       UNIQUE(type, value)
 );
 
 CREATE TABLE groupaccess(
