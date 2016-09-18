@@ -239,7 +239,7 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 		}()
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
-				log.Printf("HTTP error. Internal: %q External: %q Code: %d", e.internal, e.external, e.code)
+				log.Printf("HTTP error. External: %q Code: %d. Internal: %v", e.external, e.code, e.internal)
 				j = &struct {
 					Error string `json:"error"`
 				}{
@@ -278,7 +278,7 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 		h, err := f(r)
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
-				log.Printf("HTTP error. Internal: %q External: %q Code: %d", e.internal, e.external, e.code)
+				log.Printf("HTTP error. External: %q Code: %d. Internal: %v", e.external, e.code, e.internal)
 				http.Error(w, e.external, e.code)
 			} else {
 				log.Printf("Error in HTTP handler: %v", err)
