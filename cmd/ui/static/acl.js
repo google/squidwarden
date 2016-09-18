@@ -12,8 +12,10 @@ $(document).ready(function() {
 	newACL($(this).val());
     });
     $("#delete-acl").click(function() {
-	var acl_id = $("#acl-delete-selection").val();
-	doDelete("/acl/" + acl_id, {}, function(){window.location.reload();});
+	var acl_id = $("#current-acl").val();
+	doDelete("/acl/" + acl_id, {}, function(){
+	    window.location.href = "/acl/";
+	});
     });
 
     // Rule selection.
@@ -100,12 +102,8 @@ function ruleTextChanged(me) {
 
 function newACL(name) {
     doPost("/acl/new", {"comment": name},
-	   function() {
-	       console.log("success");
-	       window.location.reload();
-	   },
-	   function(o, text, error) {
-	       console.log("Failed!");
+	   function(resp) {
+	       window.location.href = "/acl/" + resp.acl;
 	   });
 }
 

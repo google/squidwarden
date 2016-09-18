@@ -1,4 +1,6 @@
 {{$root := .}}
+<input type="hidden" id="current-acl" value="{{.Current.ACLID}}" />
+
 <script type="text/javascript" src="/static/acl.js"></script>
 <link rel="stylesheet" type="text/css" href="/static/acl.css" media="screen"/>
 
@@ -14,18 +16,12 @@ Go to ACL:
 New ACL:
 <input type="text" id="new-acl" />
 
-<br/>
-<select id="acl-delete-selection">
-  <option value="">[no ACL selected]</option>
-  {{range .ACLs}}
-  <option value="{{.ACLID}}">{{.Comment}}</option>
-  {{end}}
-</select>
-<button id="delete-acl">Delete ACL</button>
 
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
+<button id="delete-acl">Delete ACL</button>
 
+<h3>Rules</h3>
 <table id="acl-commands">
   <tbody>
     <tr>

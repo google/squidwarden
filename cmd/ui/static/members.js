@@ -12,8 +12,10 @@ $(document).ready(function() {
 	newGroup($(this).val());
     });
     $("#action-delete-group").click(function() {
-	var group_id = $("#group-delete-selection").val();
-	doDelete("/group/" + group_id, {}, function(){window.location.reload();});
+	var group_id = $("#current-group").val();
+	doDelete("/group/" + group_id, {}, function(){
+	    window.location.href = "/members/";
+	});
     });
     $("#action-save").click(btnSave);
     $("#action-new").click(btnCreate);
@@ -56,7 +58,6 @@ function newGroup(name) {
     doPost("/group/new",
 	   {"comment": name},
 	   function(resp) {
-	       console.log("Success!", resp);
 	       window.location.href = "/members/" + resp.group;
 	   });
 }

@@ -289,7 +289,10 @@ func aclNewHandler(r *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("won't create empty ACL name")
 	}
 	u := uuid.NewV4().String()
-	return "OK", txWrap(func(tx *sql.Tx) error {
+	resp := struct {
+		ACL string `json:"acl"`
+	}{ACL: u}
+	return &resp, txWrap(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`INSERT INTO acls(acl_id, comment) VALUES(?,?)`, u, comment); err != nil {
 			return err
 		}
