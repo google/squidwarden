@@ -1245,8 +1245,8 @@ func makeRouter() *mux.Router {
 	r := mux.NewRouter()
 
 	rget := r.Methods("GET", "HEAD").Subrouter()
-	rpost := r.Methods("POST").Subrouter()
-	rdelete := r.Methods("DELETE").Subrouter()
+	rpost := r.Methods("POST").Headers("X-Requested-With", "XMLHttpRequest").Subrouter()
+	rdelete := r.Methods("DELETE").Headers("X-Requested-With", "XMLHttpRequest").Subrouter()
 
 	u := uuidRE
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
@@ -1304,6 +1304,22 @@ func makeRouter() *mux.Router {
 	}
 	return r
 }
+
+type cspAdder struct{ h http.Handler }
+
+func (c cspAdder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	safe := []string{
+		"'self'",
+		"https://code.jquery.com",
+	}
+	// Websockets can't match on 'self'. :-(
+	w.Header().Set("Content-Security-Policy",
+		fmt.Sprintf("default-src 'self'; script-src %s; connect-src 'self' ws: wss:",
+			strings.Join(safe, " "),
+		))
+	c.h.ServeHTTP(w, r)
+}
+
 func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -1326,21 +1342,30 @@ func main() {
 
 	openDB()
 
-	r := makeRouter()
+	var h http.Handler
+	{
+		r := makeRouter()
 
-	http.Handle("/", csrf.Protect(getCSRFKey(),
-		csrf.FieldName("csrf"),
-		csrf.CookieName("csrf"),
-		csrf.Secure(*httpsOnly),
-		csrf.Path("/"),
-		csrf.ErrorHandler(csrfFail{}))(r))
+		// CSRF protection.
+		h = csrf.Protect(getCSRFKey(),
+			csrf.FieldName("csrf"),
+			csrf.CookieName("csrf"),
+			csrf.Secure(*httpsOnly),
+			csrf.Path("/"),
+			csrf.ErrorHandler(csrfFail{}))(r)
+
+		// Add CSP.
+		h = &cspAdder{h}
+
+		http.Handle("/", h)
+	}
 
 	log.Printf("Running...")
 
 	// Start fastcgi.
 	if *socketPath != "" {
 		go func() {
-			if err := fcgi.Serve(sock, r); err != nil {
+			if err := fcgi.Serve(sock, h); err != nil {
 				log.Fatalf("Failed to start serving fcgi: %v", err)
 			}
 		}()
