@@ -1,8 +1,8 @@
 function loading(b) {
     if (b) {
-	$("#loading").text("Loading...");
+	$("#loading-window").css("display", "block");
     } else {
-	$("#loading").text("");
+	$("#loading-window").css("display", "none");
     }
 }
 
