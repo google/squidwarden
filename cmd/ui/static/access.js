@@ -21,12 +21,12 @@ function update() {
     var data = {};
     data["acls"] = active;
     data["comments"] = comments;
-    $.post("/access/" + $("#access-group-selection").val(), data)
-	.done(function() {
-	    console.log("success");
-	}).fail(function(o, text, error) {
-	    console.log("Failed!");
-	});
+    doPost("/access/" + $("#access-group-selection").val(), data,
+	   function() {
+	       console.log("success");
+	   }, function(o, text, error) {
+	       console.log("Failed!");
+	   });
 }
 
 function keypressHandler(event) {

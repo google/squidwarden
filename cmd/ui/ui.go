@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -35,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/csrf"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	uuid "github.com/satori/go.uuid"
@@ -60,6 +62,7 @@ var (
 	addr      = flag.String("addr", ":8080", "Address to listen to.")
 	squidLog  = flag.String("squidlog", "", "Path to squid log.")
 	dbFile    = flag.String("db", "", "sqlite database.")
+	httpsOnly = flag.Bool("https_only", true, "Only work with HTTPS.")
 
 	db *sql.DB
 )
@@ -168,7 +171,47 @@ func (e errHTTP) Error() string {
 
 func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		j, err := f(r)
+		j, err := func() (interface{}, error) {
+			// Check that it was requested from JS.
+			{
+				hn := "X-Requested-With"
+				h := r.Header[hn]
+				if len(h) != 1 {
+					return "", errHTTP{
+						internal: fmt.Sprintf("possible XSRF attack: Want 1 %s, got %q", hn, h),
+						external: fmt.Sprintf("missing or duplicate %s header", hn),
+						code:     http.StatusBadRequest,
+					}
+				}
+				if got, want := h[0], "XMLHttpRequest"; got != want {
+					return "", errHTTP{
+						internal: fmt.Sprintf("possible XSRF attack: want %s %q, got %q", hn, want, got),
+						external: fmt.Sprintf("bad %s header", hn),
+						code:     http.StatusBadRequest,
+					}
+				}
+			}
+			// Check that it's not enctype evilness.
+			{
+				hn := "Content-Type"
+				h := r.Header[hn]
+				if len(h) != 1 {
+					return "", errHTTP{
+						internal: fmt.Sprintf("possible XSRF attack: Want 1 %s, got %q", hn, h),
+						external: fmt.Sprintf("missing or duplicate %s header", hn),
+						code:     http.StatusBadRequest,
+					}
+				}
+				if got, want := h[0], "application/x-www-form-urlencoded; "; !strings.HasPrefix(got, want) {
+					return "", errHTTP{
+						internal: fmt.Sprintf("possible XSRF attack: want %s prefixed %q, got %q", hn, want, got),
+						external: fmt.Sprintf("bad %s header", hn),
+						code:     http.StatusBadRequest,
+					}
+				}
+			}
+			return f(r)
+		}()
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
 				log.Printf("HTTP error. Internal: %s External: %s Code: %d", e.internal, e.external, e.code)
@@ -202,9 +245,11 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 		}
 		if err := tmpl.Execute(w, struct {
 			Now     string
+			CSRF    string
 			Content template.HTML
 		}{
 			Now:     time.Now().UTC().Format(saneTime),
+			CSRF:    csrf.Token(r),
 			Content: h,
 		}); err != nil {
 			log.Printf("Error in main handler: %v", err)
@@ -823,6 +868,24 @@ func tailLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getCSRFKey() []byte {
+	l := 32
+	k := make([]byte, l, l)
+	if n, err := rand.Read(k); err != nil {
+		if n != l {
+			panic(fmt.Sprintf("want %d random bytes, got %d", l, n))
+		}
+	}
+	return k
+}
+
+type csrfFail struct{}
+
+func (csrfFail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("CSRF error: %v", csrf.FailureReason(r))
+	http.Error(w, "Forbidden - CSRF token invalid", http.StatusForbidden)
+}
+
 func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -852,7 +915,11 @@ func main() {
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	http.Handle("/", r)
+	http.Handle("/", csrf.Protect(getCSRFKey(),
+		csrf.FieldName("csrf"),
+		csrf.CookieName("csrf"),
+		csrf.Secure(*httpsOnly),
+		csrf.ErrorHandler(csrfFail{}))(r))
 
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

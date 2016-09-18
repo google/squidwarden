@@ -29,16 +29,18 @@ $(document).ready(function() {
 function delete_button() {
     var rules = get_all_checked();
     var data = {"rules": rules};
-    $.post("/rule/delete", data)
-	.done(function() {
-	    console.log("Delete successful");
-	    for (var i = 0; i < rules.length; i++) {
-		$("#acl-rules-row-" + rules[i]).remove();
-		changeSelected(0);
-	    }
-	}).fail(function (o, text, error) {
-	    console.log("Delete failed");
-	});
+    doPost("/rule/delete",
+	   data,
+	   function() {
+	       console.log("Delete successful");
+	       for (var i = 0; i < rules.length; i++) {
+		   $("#acl-rules-row-" + rules[i]).remove();
+		   changeSelected(0);
+	       }
+	   },
+	   function (o, text, error) {
+	       console.log("Delete failed");
+	   });
 }
 
 function get_ruleid_by_index(n) {
@@ -53,12 +55,14 @@ function save() {
 	"action": $(".acl-rules-rule-action[data-ruleid='"+id+"']").val(),
 	"comment": $(".acl-rules-rule-comment[data-ruleid='"+id+"']").val()
     };
-    $.post("/rule/" + id, data)
-	.done(function() {
-	    window.location.reload();
-	}).fail(function(o, text, error) {
-	    console.log("Failed!");
-	});
+    doPost("/rule/" + id,
+	   data,
+	   function() {
+	       window.location.reload();
+	   },
+	   function(o, text, error) {
+	       console.log("Failed!");
+	   });
 }
 
 function ruleTextChanged(me) {
@@ -91,12 +95,14 @@ function ruleTextChanged(me) {
 }
 
 function newACL(name) {
-    $.post("/acl/new", {"comment": name})
-	.done(function() {
-	    console.log("success");
-	}).fail(function(o, text, error) {
-	    console.log("Failed!");
-	});
+    doPost("/acl/new", {"comment": name},
+	   function() {
+	       console.log("success");
+	       window.location.reload();
+	   },
+	   function(o, text, error) {
+	       console.log("Failed!");
+	   });
 }
 
 function checkedRulesChanged(me) {
@@ -187,14 +193,16 @@ function move() {
     var rules = get_all_checked();
     data["destination"] = $("#acl-move-selection").val();
     data["rules"] = rules;
-    $.post("/acl/move", data)
-	.done(function() {
-	    console.log("success");
-	    for (var i = 0; i < rules.length; i++) {
-		$("#acl-rules-row-" + rules[i]).remove();
-		changeSelected(0);
-	    }
-	}).fail(function(o, text, error) {
-	    console.log("Failed!");
-	});
+    doPost("/acl/move",
+	   data,
+	   function() {
+	       console.log("success");
+	       for (var i = 0; i < rules.length; i++) {
+		   $("#acl-rules-row-" + rules[i]).remove();
+		   changeSelected(0);
+	       }
+	   },
+	   function(o, text, error) {
+	       console.log("Failed!");
+	   });
 }

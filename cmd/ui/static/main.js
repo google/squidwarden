@@ -142,14 +142,16 @@ function buttonClick(btn) {
     var data = $.extend({}, btn.target.squidwarden_data, {"action": $("#action").val()});
     console.log("Button click ", btn);
     console.log("Button data ",data);
-    $.post("/ajax/allow", data)
-        .done(function(){
-	    $("#test").html("Added");
-        })
-        .fail(function(o, text, error){
-	    $("#test").text("Failed: " + ajaxError(o, text, error));
-        });
+    doPost("/ajax/allow",
+	   data,
+           function() {
+	       $("#test").html("Added");
+           },
+           function(o, text, error) {
+	       $("#test").text("Failed: " + ajaxError(o, text, error));
+           });
 }
+
 function ajaxError(o, text, error) {
     var msg;
     if (o.readyState == 0) {

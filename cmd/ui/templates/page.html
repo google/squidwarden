@@ -2,9 +2,11 @@
   <head>
     <title>Squidwarden</title>
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script type="text/javascript" src="/static/squidwarden.js"></script>
     <link rel="stylesheet" type="text/css" href="/static/squidwarden.css" media="screen"/>
   </head>
   <body>
+    <input type="hidden" id="csrf" value="{{ .CSRF }}" />
     <div id="nav">
       <a href="/">Squidwarden</a>
       <a href="/acl/">ACLs</a>
