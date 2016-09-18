@@ -609,6 +609,26 @@ func sourceDeleteHandler(r *http.Request) (interface{}, error) {
 	})
 }
 
+func aclDeleteHandler(r *http.Request) (interface{}, error) {
+	id := assertSourceID(mux.Vars(r)["aclID"])
+	log.Printf("Deleting ACL %s", id)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM acls WHERE acl_id=?`, string(id)); err != nil {
+			r := tx.QueryRow(`SELECT COUNT(*) FROM aclrules WHERE acl_id=?`, string(id))
+			var n uint64
+			if e := r.Scan(&n); e != nil {
+				log.Printf("Failed to find rule count: %v", e)
+				return err
+			}
+			return errHTTP{
+				external: fmt.Sprintf("acl still has %d rules", n),
+				code:     http.StatusBadRequest,
+			}
+		}
+		return nil
+	})
+}
+
 func membersNewHandler(r *http.Request) (interface{}, error) {
 	gid := assertGroupID(mux.Vars(r)["groupID"])
 	r.ParseForm()
@@ -882,7 +902,7 @@ func getCSRFKey() []byte {
 type csrfFail struct{}
 
 func (csrfFail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("CSRF error: %v", csrf.FailureReason(r))
+	log.Printf("CSRF error with %q: %v", r.FormValue("csrf"), csrf.FailureReason(r))
 	http.Error(w, "Forbidden - CSRF token invalid", http.StatusForbidden)
 }
 
@@ -902,6 +922,7 @@ func main() {
 	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
 	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
 	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/acl/{aclID}", errWrapJSON(aclDeleteHandler)).Methods("DELETE")
 	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
 	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
@@ -919,6 +940,7 @@ func main() {
 		csrf.FieldName("csrf"),
 		csrf.CookieName("csrf"),
 		csrf.Secure(*httpsOnly),
+		csrf.Path("/"),
 		csrf.ErrorHandler(csrfFail{}))(r))
 
 	log.Fatal(http.ListenAndServe(*addr, nil))

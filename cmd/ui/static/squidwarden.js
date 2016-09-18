@@ -6,8 +6,7 @@ function loading(b) {
     }
 }
 
-function doPost(url, indata, success, fail) {
-    var data = $.extend({"csrf": $("#csrf").val()}, indata); 
+function doPost(url, data, success, fail) {
     loading(true);
     $.post(url, data)
 	.done(function() {
@@ -22,7 +21,8 @@ function doPost(url, indata, success, fail) {
 }
 
 function doDelete(url, indata, success, fail) {
-    var data = $.extend({"csrf": $("#csrf").val()}, indata); 
+    // We need *some* data or the content-type doesn't get set.
+    var data = $.extend({"dummy": ""}, indata);
     loading(true);
     $.ajax({
 	method: "DELETE",
@@ -41,3 +41,9 @@ function doDelete(url, indata, success, fail) {
 	}
     });
 }
+
+$(document).ready(function() {
+    $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+	jqXHR.setRequestHeader('X-CSRF-Token', $("#csrf").val());
+    });
+});

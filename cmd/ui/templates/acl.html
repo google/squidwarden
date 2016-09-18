@@ -10,8 +10,18 @@ Go to ACL:
   {{end}}
 </select>
 
+<br/>
 New ACL:
 <input type="text" id="new-acl" />
+
+<br/>
+<select id="acl-delete-selection">
+  <option value="">[no ACL selected]</option>
+  {{range .ACLs}}
+  <option value="{{.ACLID}}">{{.Comment}}</option>
+  {{end}}
+</select>
+<button id="delete-acl">Delete ACL</button>
 
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>

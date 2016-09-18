@@ -11,6 +11,10 @@ $(document).ready(function() {
 	if (e.keyCode != 13) { return; }
 	newACL($(this).val());
     });
+    $("#delete-acl").click(function() {
+	var acl_id = $("#acl-delete-selection").val();
+	doDelete("/acl/" + acl_id, {}, function(){window.location.reload();});
+    });
 
     // Rule selection.
     $("#acl-rules input.checked-rules").change(function() { checkedRulesChanged($(this)); });
