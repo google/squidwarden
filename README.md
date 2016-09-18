@@ -41,7 +41,7 @@ visible_hostname my.proxy.hostname.here.example.com
 http_access deny all
 EOF
 $ sudo cp bin/helper /usr/local/bin/proxyacl
-$ sudo sqlite3 /var/spool/squid3/proxyacl.sqlite < src/github.com/google/squidwarden/sqlite.schema
+$ sudo -u proxy sqlite3 /var/spool/squid3/proxyacl.sqlite < src/github.com/google/squidwarden/sqlite.schema
 $ sudo systemctl restart squid3
 $ sudo -u proxy ./bin/ui \
     -addr=:8081 \
