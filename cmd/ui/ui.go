@@ -229,6 +229,7 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		if _, err := w.Write(b); err != nil {
 			log.Printf("Failed to write JSON reply: %v", err)
 		}
@@ -302,7 +303,9 @@ func groupNewHandler(r *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("won't create with empty group name")
 	}
 	u := uuid.NewV4().String()
-	resp := struct{ Group string }{Group: u}
+	resp := struct {
+		Group string `json:"group"`
+	}{Group: u}
 	return &resp, txWrap(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`INSERT INTO groups(group_id, comment) VALUES(?,?)`, u, comment); err != nil {
 			return err

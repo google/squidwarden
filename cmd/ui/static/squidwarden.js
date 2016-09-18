@@ -8,16 +8,21 @@ function loading(b) {
 
 function doPost(url, data, success, fail) {
     loading(true);
-    $.post(url, data)
-	.done(function() {
+    $.ajax({
+	method: "POST",
+	url: url,
+	data: data,
+	dataType: "json",
+	"success": function(data, status, xhr) {
 	    loading(false);
-	    if (success != undefined) { success(); }
-	})
-	.fail(function(o, text, error) {
+	    if (success != undefined) { success(data); }
+	},
+	"error": function(o, text, error) {
 	    console.log("POST failed");
 	    loading(false);
 	    if (fail != undefined) { fail(o, text, error); }
-	});
+	}
+    });
 }
 
 function doDelete(url, indata, success, fail) {

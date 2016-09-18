@@ -51,9 +51,9 @@ function btnCreate() {
 function newGroup(name) {
     doPost("/group/new",
 	   {"comment": name},
-	   function(response) {
-	       console.log("Success!", response);
-	       //window.location.reload();
+	   function(resp) {
+	       console.log("Success!", resp);
+	       window.location.href = "/members/" + resp.group;
 	   });
 }
 
