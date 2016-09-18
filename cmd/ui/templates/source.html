@@ -1,0 +1,33 @@
+<h1>Source {{.Current.SourceID}}</h1>
+<table class="standard">
+  <tbody>
+    <tr>
+      <th>ID</th>
+      <td>{{.Current.SourceID}}</td>
+    </tr><tr>
+      <th>Source</th>
+      <td>{{.Current.Source}}</td>
+    </tr><tr>
+      <th>Comment</th>
+      <td>{{.Current.Comment}}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Groups</h2>
+<table class="standard">
+  <thead>
+    <tr>
+      <th>Group ID</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Groups}}
+    <tr>
+      <td><a href="/members/{{.GroupID}}">{{.GroupID}}</a></td>
+      <td>{{.Comment}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>

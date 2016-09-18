@@ -47,7 +47,7 @@ New Group:
     <tr id="members-row-{{.Source.SourceID}}">
       <td></td>
       <td class="min"><input type="checkbox" class="members-source-checked" data-sourceid="{{.Source.SourceID}}"{{if .Active}} checked{{end}} /></td>
-      <td>{{.Source.SourceID}}</td>
+      <td><a href="/source/{{.Source.SourceID}}">{{.Source.SourceID}}</a></td>
       <td>{{.Source.Source}}</td>
       <td>{{.Source.Comment}}</td>
       <td><input type="text" class="members-comment" data-sourceid="{{.Source.SourceID}}" value="{{.Comment}}" {{if .Active}}{{else}}disabled {{end}}/></td>

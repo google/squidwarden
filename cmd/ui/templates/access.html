@@ -27,7 +27,7 @@ Go to group:
     <tr>
       <td></td>
       <td class="min"><input type="checkbox" class="access-acl-checked" data-aclid="{{.ACL.ACLID}}" {{if .Active}}checked{{end}}/></td>
-      <td class="min fixed uuid">{{.ACL.ACLID}}</td>
+      <td class="min fixed uuid"><a href="/acl/{{.ACL.ACLID}}">{{.ACL.ACLID}}</a></td>
       <td class="min" id="access-acl-comment-{{.ACL.ACLID}}">{{.ACL.Comment}}</td>
       <td class="max"><input type="text" class="maxwidth" id="access-comment-{{.ACL.ACLID}}" value="{{.Comment}}" /></td>
     </tr>

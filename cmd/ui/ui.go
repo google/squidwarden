@@ -906,7 +906,7 @@ func ruleHandler(r *http.Request) (template.HTML, error) {
 
 	// Load rule.
 	var c sql.NullString
-	if err := db.QueryRow(`SELECT type, action, comment FROM rules WHERE rule_id=? `, string(current)).Scan(&data.Current.Type, &data.Current.Action, &c); err == sql.ErrNoRows {
+	if err := db.QueryRow(`SELECT type, value, action, comment FROM rules WHERE rule_id=? `, string(current)).Scan(&data.Current.Type, &data.Current.Value, &data.Current.Action, &c); err == sql.ErrNoRows {
 		return "", errHTTP{
 			external: "rule not found",
 			code:     http.StatusNotFound,
@@ -946,6 +946,67 @@ ORDER BY acls.comment`, string(current))
 
 	// Render output
 	tmpl := template.Must(template.New("rule.html").ParseFiles(path.Join(*templates, "rule.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, &data); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func sourceHandler(r *http.Request) (template.HTML, error) {
+	current := assertSourceID(mux.Vars(r)["sourceID"])
+
+	data := struct {
+		Current source
+		Groups  []group
+	}{
+		Current: source{
+			SourceID: current,
+		},
+	}
+
+	// Load rule.
+	var c sql.NullString
+	if err := db.QueryRow(`SELECT source, comment FROM sources WHERE source_id=? `, string(current)).Scan(&data.Current.Source, &c); err == sql.ErrNoRows {
+		return "", errHTTP{
+			external: "source not found",
+			code:     http.StatusNotFound,
+		}
+	} else if err != nil {
+		return "", err
+	}
+	data.Current.Comment = c.String
+
+	// Load ACLs.
+	rows, err := db.Query(`
+SELECT groups.group_id, groups.comment
+FROM groups
+JOIN members ON groups.group_id=members.group_id
+WHERE members.source_id=?
+ORDER BY groups.comment`, string(current))
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return "", err
+		}
+
+		data.Groups = append(data.Groups, group{
+			GroupID: groupID(s),
+			Comment: c.String,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+
+	// Render output
+	tmpl := template.Must(template.New("source.html").ParseFiles(path.Join(*templates, "source.html")))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &data); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
@@ -1206,6 +1267,7 @@ func makeRouter() *mux.Router {
 		{path.Join("/rule/new"), true, rpost, ruleNewHandler},
 		{path.Join("/rule/delete"), true, rpost, ruleDeleteHandler},
 
+		{path.Join("/source/", ps), false, rget, sourceHandler},
 		{path.Join("/source/", ps), true, rdelete, sourceDeleteHandler},
 	} {
 		if e.js {
