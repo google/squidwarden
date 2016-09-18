@@ -142,10 +142,10 @@ function buttonClick(btn) {
     var data = $.extend({}, btn.target.squidwarden_data, {"action": $("#action").val()});
     console.log("Button click ", btn);
     console.log("Button data ",data);
-    doPost("/ajax/allow",
+    doPost("/rule/new",
 	   data,
-           function() {
-	       $("#test").html("Added");
+           function(resp) {
+	       $("#test").html("Added " + resp.rule);
            },
            function(o, text, error) {
 	       $("#test").text("Failed: " + ajaxError(o, text, error));

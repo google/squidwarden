@@ -124,30 +124,53 @@ func openDB() {
 	}
 }
 
-func allowHandler(w http.ResponseWriter, r *http.Request) {
-	typ := r.FormValue("type")
-	value := r.FormValue("value")
-	action := r.FormValue("action")
-	if typ == "" || value == "" || action == "" {
-		http.Error(w, "Missing parameters", http.StatusBadRequest)
-		return
+func ruleNewHandler(r *http.Request) (interface{}, error) {
+	data := struct {
+		typ    string
+		value  string
+		action string
+	}{
+		typ:    r.FormValue("type"),
+		value:  r.FormValue("value"),
+		action: r.FormValue("action"),
 	}
-	// TODO: look up the ID of the 'new' ACL.
-	aclID := "88bf513a-802f-450d-9fc4-b49eeabf1b8f"
-	if err := txWrap(func(tx *sql.Tx) error {
-		id := uuid.NewV4().String()
-		log.Printf("Adding rule %q", id)
-		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, action, typ, value); err != nil {
-			return err
+	if data.typ == "" || data.value == "" || data.action == "" {
+		return nil, errHTTP{
+			internal: nil,
+			external: fmt.Sprintf("Missing parameters"),
+			code:     http.StatusBadRequest,
 		}
-		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, aclID, id); err != nil {
+	}
+
+	// TODO: look up the ID of the 'new' ACL.
+	aclID := aclID("88bf513a-802f-450d-9fc4-b49eeabf1b8f")
+
+	id := uuid.NewV4().String()
+	resp := struct {
+		Rule string `json:"rule"`
+	}{Rule: id}
+	return &resp, txWrap(func(tx *sql.Tx) error {
+		log.Printf("Adding rule %q", id)
+		if _, err := tx.Exec(`INSERT INTO rules(rule_id, action, type, value) VALUES(?,?,?,?)`, id, data.action, data.typ, data.value); err != nil {
+			var existing string
+			if e := tx.QueryRow(`SELECT rule_id FROM rules WHERE type=? AND value=?`, data.typ, data.value).Scan(&existing); e != nil {
+				return errHTTP{
+					internal: fmt.Errorf("first %q, then %q", err, e),
+					external: "failed to insert rule",
+					code:     http.StatusInternalServerError,
+				}
+			}
+			return errHTTP{
+				internal: nil,
+				external: fmt.Sprintf("refusing to create duplicate of rule %s", existing),
+				code:     http.StatusConflict,
+			}
+		}
+		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, string(aclID), id); err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
-		log.Printf("Database trouble: %v", err)
-		http.Error(w, "DB problems", http.StatusInternalServerError)
-	}
+	})
 }
 
 func reverse(s []string) []string {
@@ -215,7 +238,7 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 		}()
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
-				log.Printf("HTTP error. Internal: %s External: %s Code: %d", e.internal, e.external, e.code)
+				log.Printf("HTTP error. Internal: %q External: %q Code: %d", e.internal, e.external, e.code)
 				http.Error(w, e.external, e.code)
 			} else {
 				log.Printf("Error in HTTP handler: %v", err)
@@ -238,11 +261,17 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 
 func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("PANIC: %v", err)
+				http.Error(w, "Bleh", http.StatusInternalServerError)
+			}
+		}()
 		tmpl := template.Must(template.ParseFiles(path.Join(*templates, "page.html")))
 		h, err := f(r)
 		if err != nil {
 			if e, ok := err.(errHTTP); ok {
-				log.Printf("HTTP error. Internal: %s External: %s Code: %d", e.internal, e.external, e.code)
+				log.Printf("HTTP error. Internal: %q External: %q Code: %d", e.internal, e.external, e.code)
 				http.Error(w, e.external, e.code)
 			} else {
 				log.Printf("Error in HTTP handler: %v", err)
@@ -266,7 +295,9 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 	}
 }
 
-var reUUID = regexp.MustCompile(`^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$`)
+const uuidRE = `[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}`
+
+var reUUID = regexp.MustCompile(`^` + uuidRE + `$`)
 
 func txWrap(f func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()
@@ -631,6 +662,15 @@ func assertUUID(s string) string {
 	return s
 }
 
+func assertUUIDOrNull(s string) string {
+	if s == "" {
+		return ""
+	}
+	return assertUUID(s)
+}
+
+func assertACLID(s string) aclID       { return aclID(assertUUID(s)) }
+func assertACLIDOrNull(s string) aclID { return aclID(assertUUIDOrNull(s)) }
 func assertGroupID(s string) groupID   { return groupID(assertUUID(s)) }
 func assertSourceID(s string) sourceID { return sourceID(assertUUID(s)) }
 
@@ -809,7 +849,7 @@ func ruleEditHandler(r *http.Request) (interface{}, error) {
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
-	current := aclID(mux.Vars(r)["aclID"])
+	current := assertACLIDOrNull(mux.Vars(r)["aclID"])
 
 	data := struct {
 		ACLs []acl
@@ -1013,35 +1053,70 @@ func (csrfFail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Forbidden - CSRF token invalid", http.StatusForbidden)
 }
 
+func makeRouter() *mux.Router {
+	r := mux.NewRouter()
+
+	rget := r.Methods("GET", "HEAD").Subrouter()
+	rpost := r.Methods("POST").Subrouter()
+	rdelete := r.Methods("DELETE").Subrouter()
+
+	u := uuidRE
+	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
+	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
+
+	pg := "{groupID:" + u + "}"
+	pa := "{aclID:" + u + "}"
+	pr := "{ruleID:" + u + "}"
+	ps := "{sourceID:" + u + "}"
+
+	for _, e := range []struct {
+		path    string
+		js      bool
+		r       *mux.Router
+		handler interface{}
+	}{
+		{path.Join("/"), false, rget, rootHandler},
+
+		{path.Join("/access") + "/", false, rget, accessHandler},
+		{path.Join("/access", pg), false, rget, accessHandler},
+		{path.Join("/access", pg), true, rpost, accessUpdateHandler},
+
+		{path.Join("/acl") + "/", false, rget, aclHandler},
+		{path.Join("/acl/", pa), false, rget, aclHandler},
+		{path.Join("/acl/", pa), true, rdelete, aclDeleteHandler},
+		{path.Join("/acl/move"), true, rpost, aclMoveHandler},
+		{path.Join("/acl/new"), true, rpost, aclNewHandler},
+
+		{path.Join("/group/", pg), true, rdelete, groupDeleteHandler},
+		{path.Join("/group/new"), true, rpost, groupNewHandler},
+
+		{path.Join("/members") + "/", false, rget, membersHandler},
+		{path.Join("/members/", pg), false, rget, membersHandler},
+		{path.Join("/members/", pg, "members"), true, rpost, membersmembersHandler},
+		{path.Join("/members/", pg, "new"), true, rpost, membersNewHandler},
+
+		{path.Join("/rule/", pr) + "/", true, rpost, ruleEditHandler},
+		{path.Join("/rule/new"), true, rpost, ruleNewHandler},
+		{path.Join("/rule/delete"), true, rpost, ruleDeleteHandler},
+
+		{path.Join("/source/", ps), true, rdelete, sourceDeleteHandler},
+	} {
+		if e.js {
+			e.r.HandleFunc(e.path, errWrapJSON(e.handler.(func(*http.Request) (interface{}, error))))
+		} else {
+			e.r.HandleFunc(e.path, errWrap(e.handler.(func(*http.Request) (template.HTML, error))))
+		}
+	}
+	return r
+}
 func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
 		log.Fatalf("Extra args on cmdline: %q", flag.Args())
 	}
 	openDB()
-	log.Printf("Running...")
-	r := mux.NewRouter()
-	r.HandleFunc("/", errWrap(rootHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/access/", errWrap(accessHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/access/{groupID}", errWrap(accessHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/access/{groupID}", errWrapJSON(accessUpdateHandler)).Methods("POST")
-	r.HandleFunc("/acl/", errWrap(aclHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/acl/move", errWrapJSON(aclMoveHandler)).Methods("POST")
-	r.HandleFunc("/acl/new", errWrapJSON(aclNewHandler)).Methods("POST")
-	r.HandleFunc("/acl/{aclID}", errWrap(aclHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/acl/{aclID}", errWrapJSON(aclDeleteHandler)).Methods("DELETE")
-	r.HandleFunc("/ajax/allow", allowHandler).Methods("POST")
-	r.HandleFunc("/ajax/tail-log", tailLogHandler).Methods("GET")
-	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
-	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
-	r.HandleFunc("/members/{groupID}/new", errWrapJSON(membersNewHandler)).Methods("POST")
-	r.HandleFunc("/members/{groupID}/members", errWrapJSON(membersmembersHandler)).Methods("POST")
-	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
-	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
-	r.HandleFunc("/source/{sourceID}", errWrapJSON(sourceDeleteHandler)).Methods("DELETE")
-	r.HandleFunc("/group/new", errWrapJSON(groupNewHandler)).Methods("POST")
-	r.HandleFunc("/group/{groupID}", errWrapJSON(groupDeleteHandler)).Methods("DELETE")
+
+	r := makeRouter()
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
@@ -1052,5 +1127,6 @@ func main() {
 		csrf.Path("/"),
 		csrf.ErrorHandler(csrfFail{}))(r))
 
+	log.Printf("Running...")
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
