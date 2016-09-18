@@ -24,7 +24,7 @@ $(document).ready(function() {
     $("#acl-move-selection").change(updateActionButtons);
 
     // Rule editing.
-    var f = function() { ruleTextChanged($(this)); }
+    var f = function(e) { ruleTextChanged($(this), e); }
     $("#acl-rules input[type=text],#acl-rules select").change(f);
     $("#acl-rules input[type=text]").keydown(f);
     $("#button-save").click(save);
@@ -65,8 +65,14 @@ function save() {
 	   });
 }
 
-function ruleTextChanged(me) {
+function ruleTextChanged(me, e) {
     var ruleid = me.data("ruleid");
+    if ('keyCode' in e) {
+	if (e.keyCode == 13) {
+	    $("#button-save").click();
+	    return;
+	}
+    }
 
     // Remove all checkmarks.
     $("#acl-rules input.checked-rules").prop("checked", false);
