@@ -148,21 +148,33 @@ function buttonClick(btn) {
 	       $("#test").html("Added " + resp.rule);
            },
            function(o, text, error) {
-	       $("#test").text("Failed: " + ajaxError(o, text, error));
+	       $("#test").prepend(ajaxError(o, text, error));
            });
 }
 
 function ajaxError(o, text, error) {
-    var msg;
+    var msg = $("<p></p>");
     if (o.readyState == 0) {
-	msg = "Network error";
+	msg.text("Network error");
     } else if (o.readyState == 4) {
-	msg = text + ", " + error;
+	console.log(error);
+	msg.append(text + ", " + error);
 	if ('error' in o.responseJSON) {
-	    msg = msg + ": " + o.responseJSON.error;
+	    msg.append($("<br/>"), o.responseJSON.error);
+	}
+	if ('links' in o.responseJSON) {
+	    console.log("blaha", o.responseJSON.links);
+	    msg.append($("<br/>Links: "));
+	    for (var i = 0; i < o.responseJSON.links.length; i++) {
+		var l = $("<a></a>");
+		l.prop("href", o.responseJSON.links[i]);
+		l.text("link");
+		msg.append(l);
+		msg.append(" ");
+	    }
 	}
     } else {
-	msg = "unknown error type for readyState " + o.readyState;
+	msg.text("unknown error type for readyState " + o.readyState);
     }
     return msg;
 }

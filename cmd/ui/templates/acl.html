@@ -58,7 +58,7 @@ New ACL:
     <tr id="acl-rules-row-{{.RuleID}}">
       <td class="acl-rules-row-selected" data-ruleid="{{.RuleID}}"></td>
       <td><input type="checkbox" class="checked-rules" data-ruleid="{{.RuleID}}" /></td>
-      <td class="min fixed uuid">{{.RuleID}}</td>
+      <td class="min fixed uuid"><a href="/rule/{{.RuleID}}">{{.RuleID}}</a></td>
       <td class="min"><select class="acl-rules-rule-type" data-ruleid="{{.RuleID}}">
 	  {{$current := .}}
 	  {{range $root.Types}}

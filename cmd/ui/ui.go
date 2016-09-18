@@ -163,7 +163,10 @@ func ruleNewHandler(r *http.Request) (interface{}, error) {
 			return errHTTP{
 				internal: nil,
 				external: fmt.Sprintf("refusing to create duplicate of rule %s", existing),
-				code:     http.StatusConflict,
+				links: []string{
+					"/rule/" + existing,
+				},
+				code: http.StatusConflict,
 			}
 		}
 		if _, err := tx.Exec(`INSERT INTO aclrules(acl_id, rule_id) VALUES(?, ?)`, string(aclID), id); err != nil {
@@ -186,6 +189,7 @@ type errHTTP struct {
 	external string
 	internal error
 	code     int
+	links    []string
 }
 
 func (e errHTTP) Error() string {
@@ -241,9 +245,11 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 			if e, ok := err.(errHTTP); ok {
 				log.Printf("HTTP error. External: %q Code: %d. Internal: %v", e.external, e.code, e.internal)
 				j = &struct {
-					Error string `json:"error"`
+					Error string   `json:"error"`
+					Links []string `json:"links"`
 				}{
 					Error: e.external,
+					Links: e.links,
 				}
 				status = e.code
 			} else {
@@ -679,6 +685,7 @@ func assertUUIDOrNull(s string) string {
 func assertACLID(s string) aclID       { return aclID(assertUUID(s)) }
 func assertACLIDOrNull(s string) aclID { return aclID(assertUUIDOrNull(s)) }
 func assertGroupID(s string) groupID   { return groupID(assertUUID(s)) }
+func assertRuleID(s string) ruleID     { return ruleID(assertUUID(s)) }
 func assertSourceID(s string) sourceID { return sourceID(assertUUID(s)) }
 
 func sourceDeleteHandler(r *http.Request) (interface{}, error) {
@@ -853,6 +860,71 @@ func ruleEditHandler(r *http.Request) (interface{}, error) {
 		_, err := tx.Exec(`UPDATE rules SET type=?, value=?, action=?, comment=? WHERE rule_id=?`, data.typ, data.value, data.action, data.comment, string(ruleID))
 		return err
 	})
+}
+
+func ruleListHandler(r *http.Request) (template.HTML, error) {
+	return "TODO", nil
+}
+
+func ruleHandler(r *http.Request) (template.HTML, error) {
+	current := assertRuleID(mux.Vars(r)["ruleID"])
+
+	data := struct {
+		Current rule
+		ACLs    []acl
+	}{
+		Current: rule{
+			RuleID: current,
+		},
+	}
+
+	// Load rule.
+	var c sql.NullString
+	if err := db.QueryRow(`SELECT type, action, comment FROM rules WHERE rule_id=? `, string(current)).Scan(&data.Current.Type, &data.Current.Action, &c); err == sql.ErrNoRows {
+		return "", errHTTP{
+			external: "rule not found",
+			code:     http.StatusNotFound,
+		}
+	} else if err != nil {
+		return "", err
+	}
+	data.Current.Comment = c.String
+
+	// Load ACLs.
+	rows, err := db.Query(`
+SELECT acls.acl_id,acls.comment
+FROM aclrules
+JOIN acls ON aclrules.acl_id=acls.acl_id
+WHERE rule_id='2562e452-02a4-4de5-9837-ae5b4bdb699b'
+ORDER BY acls.comment`)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		var c sql.NullString
+		if err := rows.Scan(&s, &c); err != nil {
+			return "", err
+		}
+
+		data.ACLs = append(data.ACLs, acl{
+			ACLID:   aclID(s),
+			Comment: c.String,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+
+	// Render output
+	tmpl := template.Must(template.New("rule.html").ParseFiles(path.Join(*templates, "rule.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, &data); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
 }
 
 func aclHandler(r *http.Request) (template.HTML, error) {
@@ -1102,7 +1174,9 @@ func makeRouter() *mux.Router {
 		{path.Join("/members/", pg, "members"), true, rpost, membersmembersHandler},
 		{path.Join("/members/", pg, "new"), true, rpost, membersNewHandler},
 
-		{path.Join("/rule/", pr) + "/", true, rpost, ruleEditHandler},
+		{path.Join("/rule/") + "/", false, rget, ruleHandler},
+		{path.Join("/rule/", pr), false, rget, ruleHandler},
+		{path.Join("/rule/", pr), true, rpost, ruleEditHandler},
 		{path.Join("/rule/new"), true, rpost, ruleNewHandler},
 		{path.Join("/rule/delete"), true, rpost, ruleDeleteHandler},
 

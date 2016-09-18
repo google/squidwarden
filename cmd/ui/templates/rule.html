@@ -1,0 +1,36 @@
+<h1>Rule {{.Current.RuleID}}</h1>
+<table class="standard">
+  <tbody>
+    <tr>
+      <th>ID</th>
+      <td>{{.Current.RuleID}}</td>
+    </tr><tr>
+      <th>Type</th>
+      <td>{{.Current.Type}}</td>
+    </tr><tr>
+      <th>Action</th>
+      <td>{{.Current.Action}}</td>
+    </tr><tr>
+      <th>Comment</th>
+      <td>{{.Current.Comment}}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>ACLs</h2>
+<table class="standard">
+  <thead>
+    <tr>
+      <th>ACL ID</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .ACLs}}
+    <tr>
+      <td><a href="/acl/{{.ACLID}}">{{.ACLID}}</a></td>
+      <td>{{.Comment}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
