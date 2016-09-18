@@ -516,6 +516,24 @@ func getGroupACLs(g groupID) (map[aclID]string, error) {
 }
 
 func getGroupSources(g groupID) (map[sourceID]string, error) {
+	// First see if it exists.
+	{
+		var t string
+		if err := db.QueryRow(`SELECT group_id FROM groups WHERE group_id=?`, string(g)).Scan(&t); err == sql.ErrNoRows {
+			return nil, errHTTP{
+				internal: err,
+				external: fmt.Sprintf("group %q not found", g),
+				code:     http.StatusNotFound,
+			}
+		} else if err != nil {
+			return nil, errHTTP{
+				internal: err,
+				external: fmt.Sprintf("failed looking up group %q", g),
+				code:     http.StatusInternalServerError,
+			}
+		}
+	}
+
 	sources := make(map[sourceID]string)
 
 	rows, err := db.Query(`SELECT source_id, comment FROM members WHERE group_id=?`, string(g))
@@ -625,6 +643,7 @@ func sourceDeleteHandler(r *http.Request) (interface{}, error) {
 				return err
 			}
 			return errHTTP{
+				internal: err,
 				external: fmt.Sprintf("source still used by %d groups", n),
 				code:     http.StatusBadRequest,
 			}
@@ -647,6 +666,7 @@ func groupDeleteHandler(r *http.Request) (interface{}, error) {
 			}
 			if n > 0 {
 				return errHTTP{
+					internal: err,
 					external: fmt.Sprintf("group still used by %d sources", n),
 					code:     http.StatusBadRequest,
 				}
@@ -659,6 +679,7 @@ func groupDeleteHandler(r *http.Request) (interface{}, error) {
 			}
 			if n > 0 {
 				return errHTTP{
+					internal: err,
 					external: fmt.Sprintf("group still granted access to %d acls", n),
 					code:     http.StatusBadRequest,
 				}
@@ -686,6 +707,7 @@ func aclDeleteHandler(r *http.Request) (interface{}, error) {
 				return err
 			}
 			return errHTTP{
+				internal: err,
 				external: fmt.Sprintf("acl still has %d rules", n),
 				code:     http.StatusBadRequest,
 			}
@@ -843,8 +865,9 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 }
 
 func loadACL(id aclID) ([]rule, error) {
+	// First check that it exists.
 	{
-		var t uint64
+		var t string
 		if err := db.QueryRow(`SELECT acl_id FROM acls WHERE acl_id=?`, string(id)).Scan(&t); err == sql.ErrNoRows {
 			return nil, errHTTP{
 				internal: err,
