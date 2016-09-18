@@ -44,6 +44,8 @@ import (
 )
 
 const (
+	version = "0.99"
+
 	actionAllow  = "allow"
 	actionBlock  = "block"
 	actionIgnore = "ignore"
@@ -108,6 +110,15 @@ func rootHandler(r *http.Request) (template.HTML, error) {
 	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "main.html")))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, nil); err != nil {
+		return "", fmt.Errorf("template execute fail: %v", err)
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func aboutHandler(r *http.Request) (template.HTML, error) {
+	tmpl := template.Must(template.ParseFiles(path.Join(*templates, "about.html")))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, &struct{ Version string }{Version: version}); err != nil {
 		return "", fmt.Errorf("template execute fail: %v", err)
 	}
 	return template.HTML(buf.String()), nil
@@ -302,10 +313,12 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 		}
 		if err := tmpl.Execute(w, struct {
 			Now     string
+			Version string
 			CSRF    string
 			Content template.HTML
 		}{
 			Now:     time.Now().UTC().Format(saneTime),
+			Version: version,
 			CSRF:    csrf.Token(r),
 			Content: h,
 		}); err != nil {
@@ -1242,6 +1255,8 @@ func makeRouter() *mux.Router {
 		handler interface{}
 	}{
 		{path.Join("/"), false, rget, rootHandler},
+
+		{path.Join("/about"), false, rget, aboutHandler},
 
 		{path.Join("/access") + "/", false, rget, accessHandler},
 		{path.Join("/access", pg), false, rget, accessHandler},

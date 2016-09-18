@@ -18,6 +18,12 @@ body {
 #nav-time {
     float: right;
     display: inline-block;
+    padding-left: 1em;
+    font-size: 12pt;
+}
+#nav-about {
+    float: right;
+    display: inline-block;
     padding-left: 10em;
     font-size: 12pt;
 }
