@@ -15,12 +15,12 @@ https://github.com/google/squidwarden/
 TODO: This procedure is untested.
 
 ```
-$ sudo apt install squid3
+$ sudo apt install squid3 sqlite3
 $ go get github.com/google/squidwarden
 $ go generate github.com/google/squidwarden/...
 $ go build github.com/google/squidwarden/cmd/ui
 $ sudo mv /etc/squid3/squid.conf{,.dist}
-$ cat <<EOF > /etc/squid3/squid.conf
+$ sudo dd of=/etc/squid3/squid.conf <<EOF
 # TODO: Not all of these settings may be needed.
 http_port 3128
 via off
@@ -107,8 +107,6 @@ server {
 EOF
 $ sudo systemctl restart nginx.service
 $ sudo -u proxy ./bin/ui \
-    -templates=src/github.com/google/squidwarden/cmd/ui/templates \
-    -static=src/github.com/google/squidwarden/cmd/ui/static \
     -addr=127.0.0.1:8081 \
     -fcgi=/var/spool/squid3/squidwarden.sock \
     -https_only=false \
