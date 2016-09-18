@@ -48,6 +48,8 @@ import (
 const (
 	version = "0.99"
 
+	newACLID = aclID("88bf513a-802f-450d-9fc4-b49eeabf1b8f")
+
 	actionAllow  = "allow"
 	actionBlock  = "block"
 	actionIgnore = "ignore"
@@ -176,8 +178,7 @@ func ruleNewHandler(r *http.Request) (interface{}, error) {
 		}
 	}
 
-	// TODO: look up the ID of the 'new' ACL.
-	aclID := aclID("88bf513a-802f-450d-9fc4-b49eeabf1b8f")
+	aclID := newACLID
 
 	id := uuid.NewV4().String()
 	resp := struct {

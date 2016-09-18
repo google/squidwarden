@@ -16,7 +16,9 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -44,10 +46,12 @@ func TestMain(m *testing.M) {
 				panic(err)
 			}
 			defer f.Close()
+			var e bytes.Buffer
 			cmd := exec.Command(sqliteBin, *dbFile)
 			cmd.Stdin = f
+			cmd.Stderr = &e
 			if err := cmd.Run(); err != nil {
-				panic(err)
+				log.Fatalf("sqlite setup reading %q: %v, stderr %q", fn, err, e.String())
 			}
 		}
 
