@@ -508,14 +508,54 @@ func getSources() ([]source, error) {
 	return sources, nil
 }
 
+func formUUIDsStringSlice(vs []string) ([]string, error) {
+	var s []string
+	for _, u := range vs {
+		if !reUUID.MatchString(u) {
+			return nil, fmt.Errorf("%q is not valid UUID", u)
+		}
+		s = append(s, u)
+	}
+	return s, nil
+}
+
+func assertUUID(s string) string {
+	if !reUUID.MatchString(s) {
+		panic(fmt.Sprintf("%q is not uuid", s))
+	}
+	return s
+}
+
+func assertGroupID(s string) groupID { return groupID(assertUUID(s)) }
+
+func membersmembersHandler(r *http.Request) (interface{}, error) {
+	r.ParseForm()
+	gid := assertGroupID(mux.Vars(r)["groupID"])
+	sources, err := formUUIDsStringSlice(r.Form["sources[]"])
+	if err != nil {
+		return nil, err
+	}
+	comments := []string(r.Form["comments[]"])
+
+	log.Printf("Updating group %s to %v", gid, sources)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE from members WHERE group_id=?`, string(gid)); err != nil {
+			return err
+		}
+		for n := range sources {
+			if _, err := tx.Exec(`INSERT INTO members(group_id, source_id, comment) VALUES(?,?,?)`, string(gid), sources[n], comments[n]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func ruleDeleteHandler(r *http.Request) (interface{}, error) {
 	r.ParseForm()
-	var rules []string
-	for _, ruleID := range r.Form["rules[]"] {
-		if !reUUID.MatchString(ruleID) {
-			return nil, fmt.Errorf("%q is not valid rule ID", ruleID)
-		}
-		rules = append(rules, ruleID)
+	rules, err := formUUIDsStringSlice(r.Form["rules[]"])
+	if err != nil {
+		return nil, err
 	}
 	log.Printf("Deleting %s", strings.Join(rules, ", "))
 	return "OK", txWrap(func(tx *sql.Tx) error {
@@ -743,6 +783,7 @@ func main() {
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/members/{groupID}/members", errWrapJSON(membersmembersHandler)).Methods("POST")
 	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
 	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
 

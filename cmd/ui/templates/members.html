@@ -9,8 +9,10 @@ Go to group:
   {{end}}
 </select>
 
-
+<br/>
 {{if .Current.GroupID}}
+<button id="action-save" disabled>Save</button>
+
 <table class="standard">
   <thead>
     <tr>
@@ -19,18 +21,18 @@ Go to group:
       <th>ID</th>
       <th>Addr</th>
       <th>Source</th>
-      <th>Comment</th>
+      <th>Membership comment</th>
     </tr>
   </thead>
   <tbody>
     {{range .Sources}}
     <tr>
       <td></td>
-      <td class="min"><input type="checkbox" class="access-source-checked" data-aclid="{{.Source.SourceID}}" {{if .Active}}checked{{end}}/></td>
+      <td class="min"><input type="checkbox" class="members-source-checked" data-sourceid="{{.Source.SourceID}}"{{if .Active}} checked{{end}} /></td>
       <td>{{.Source.SourceID}}</td>
       <td>{{.Source.Source}}</td>
       <td>{{.Source.Comment}}</td>
-      <td>{{.Comment}}</td>
+      <td><input type="text" class="members-comment" data-sourceid="{{.Source.SourceID}}" value="{{.Comment}}" /></td>
     </tr>
     {{end}}
   </tbody>
