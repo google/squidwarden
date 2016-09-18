@@ -161,11 +161,12 @@ func reverse(s []string) []string {
 
 type errHTTP struct {
 	external string
-	internal string
+	internal error
 	code     int
 }
 
 func (e errHTTP) Error() string {
+	log.Printf("errHTTP converted to error, losing internal info: %v", e.internal)
 	return e.external
 }
 
@@ -178,14 +179,14 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 				h := r.Header[hn]
 				if len(h) != 1 {
 					return "", errHTTP{
-						internal: fmt.Sprintf("possible XSRF attack: Want 1 %s, got %q", hn, h),
+						internal: fmt.Errorf("possible XSRF attack: Want 1 %s, got %q", hn, h),
 						external: fmt.Sprintf("missing or duplicate %s header", hn),
 						code:     http.StatusBadRequest,
 					}
 				}
 				if got, want := h[0], "XMLHttpRequest"; got != want {
 					return "", errHTTP{
-						internal: fmt.Sprintf("possible XSRF attack: want %s %q, got %q", hn, want, got),
+						internal: fmt.Errorf("possible XSRF attack: want %s %q, got %q", hn, want, got),
 						external: fmt.Sprintf("bad %s header", hn),
 						code:     http.StatusBadRequest,
 					}
@@ -197,14 +198,14 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 				h := r.Header[hn]
 				if len(h) != 1 {
 					return "", errHTTP{
-						internal: fmt.Sprintf("possible XSRF attack: Want 1 %s, got %q", hn, h),
+						internal: fmt.Errorf("possible XSRF attack: Want 1 %s, got %q", hn, h),
 						external: fmt.Sprintf("missing or duplicate %s header", hn),
 						code:     http.StatusBadRequest,
 					}
 				}
 				if got, want := h[0], "application/x-www-form-urlencoded; "; !strings.HasPrefix(got, want) {
 					return "", errHTTP{
-						internal: fmt.Sprintf("possible XSRF attack: want %s prefixed %q, got %q", hn, want, got),
+						internal: fmt.Errorf("possible XSRF attack: want %s prefixed %q, got %q", hn, want, got),
 						external: fmt.Sprintf("bad %s header", hn),
 						code:     http.StatusBadRequest,
 					}
@@ -239,8 +240,13 @@ func errWrap(f func(*http.Request) (template.HTML, error)) func(http.ResponseWri
 		tmpl := template.Must(template.ParseFiles(path.Join(*templates, "page.html")))
 		h, err := f(r)
 		if err != nil {
-			log.Printf("Error in HTTP handler: %v", err)
-			http.Error(w, "Internal error", http.StatusInternalServerError)
+			if e, ok := err.(errHTTP); ok {
+				log.Printf("HTTP error. Internal: %s External: %s Code: %d", e.internal, e.external, e.code)
+				http.Error(w, e.external, e.code)
+			} else {
+				log.Printf("Error in HTTP handler: %v", err)
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+			}
 			return
 		}
 		if err := tmpl.Execute(w, struct {
@@ -778,6 +784,22 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 }
 
 func loadACL(id aclID) ([]rule, error) {
+	{
+		var t uint64
+		if err := db.QueryRow(`SELECT acl_id FROM acls WHERE acl_id=?`, string(id)).Scan(&t); err == sql.ErrNoRows {
+			return nil, errHTTP{
+				internal: err,
+				external: fmt.Sprintf("ACL %q not found", id),
+				code:     http.StatusNotFound,
+			}
+		} else if err != nil {
+			return nil, errHTTP{
+				internal: err,
+				external: fmt.Sprintf("failed looking up ACL %q", id),
+				code:     http.StatusInternalServerError,
+			}
+		}
+	}
 	rows, err := db.Query(`
 SELECT rules.rule_id, rules.type, rules.value, rules.action, rules.comment
 FROM aclrules
