@@ -138,7 +138,6 @@ function createButtonLI(name, data, tip) {
 }
 
 function buttonClick(btn) {
-    $("#test").html("Loading...");
     var data = $.extend({}, btn.target.squidwarden_data, {"action": $("#action").val()});
     console.log("Button click ", btn);
     console.log("Button data ",data);
@@ -146,35 +145,6 @@ function buttonClick(btn) {
 	   data,
            function(resp) {
 	       $("#test").html("Added " + resp.rule);
-           },
-           function(o, text, error) {
-	       $("#test").prepend(ajaxError(o, text, error));
            });
 }
 
-function ajaxError(o, text, error) {
-    var msg = $("<p></p>");
-    if (o.readyState == 0) {
-	msg.text("Network error");
-    } else if (o.readyState == 4) {
-	console.log(error);
-	msg.append(text + ", " + error);
-	if ('error' in o.responseJSON) {
-	    msg.append($("<br/>"), o.responseJSON.error);
-	}
-	if ('links' in o.responseJSON) {
-	    console.log("blaha", o.responseJSON.links);
-	    msg.append($("<br/>Links: "));
-	    for (var i = 0; i < o.responseJSON.links.length; i++) {
-		var l = $("<a></a>");
-		l.prop("href", o.responseJSON.links[i]);
-		l.text("link");
-		msg.append(l);
-		msg.append(" ");
-	    }
-	}
-    } else {
-	msg.text("unknown error type for readyState " + o.readyState);
-    }
-    return msg;
-}

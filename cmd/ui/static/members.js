@@ -91,8 +91,5 @@ function btnSave() {
 		   $("button[data-sourceid="+sid+"]").prop("disabled", true);
 		   $(".members-comment[data-sourceid="+sid+"]").prop("disabled", false);
 	       });
-	   },
-	   function(o, text, error) {
-	       console.log("Update failed");
 	   });
 }

@@ -43,9 +43,6 @@ function delete_button() {
 		   $("#acl-rules-row-" + rules[i]).remove();
 		   changeSelected(0);
 	       }
-	   },
-	   function (o, text, error) {
-	       console.log("Delete failed");
 	   });
 }
 
@@ -65,9 +62,6 @@ function save() {
 	   data,
 	   function() {
 	       window.location.reload();
-	   },
-	   function(o, text, error) {
-	       console.log("Failed!");
 	   });
 }
 
@@ -101,7 +95,8 @@ function ruleTextChanged(me) {
 }
 
 function newACL(name) {
-    doPost("/acl/new", {"comment": name},
+    doPost("/acl/new",
+	   {"comment": name},
 	   function(resp) {
 	       window.location.href = "/acl/" + resp.acl;
 	   });
@@ -203,8 +198,5 @@ function move() {
 		   $("#acl-rules-row-" + rules[i]).remove();
 		   changeSelected(0);
 	       }
-	   },
-	   function(o, text, error) {
-	       console.log("Failed!");
 	   });
 }

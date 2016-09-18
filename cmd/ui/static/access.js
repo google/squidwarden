@@ -21,11 +21,10 @@ function update() {
     var data = {};
     data["acls"] = active;
     data["comments"] = comments;
-    doPost("/access/" + $("#access-group-selection").val(), data,
+    doPost("/access/" + $("#access-group-selection").val(),
+	   data,
 	   function() {
 	       console.log("success");
-	   }, function(o, text, error) {
-	       console.log("Failed!");
 	   });
 }
 

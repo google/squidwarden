@@ -163,8 +163,11 @@ func ruleNewHandler(r *http.Request) (interface{}, error) {
 			return errHTTP{
 				internal: nil,
 				external: fmt.Sprintf("refusing to create duplicate of rule %s", existing),
-				links: []string{
-					"/rule/" + existing,
+				links: []errHTTPLink{
+					{
+						Text: "existing rule",
+						Link: "/rule/" + existing,
+					},
 				},
 				code: http.StatusConflict,
 			}
@@ -185,11 +188,16 @@ func reverse(s []string) []string {
 	return o
 }
 
+type errHTTPLink struct {
+	Text string `json:"text"`
+	Link string `json:"link"`
+}
+
 type errHTTP struct {
 	external string
 	internal error
 	code     int
-	links    []string
+	links    []errHTTPLink
 }
 
 func (e errHTTP) Error() string {
@@ -245,8 +253,8 @@ func errWrapJSON(f func(*http.Request) (interface{}, error)) func(http.ResponseW
 			if e, ok := err.(errHTTP); ok {
 				log.Printf("HTTP error. External: %q Code: %d. Internal: %v", e.external, e.code, e.internal)
 				j = &struct {
-					Error string   `json:"error"`
-					Links []string `json:"links"`
+					Error string        `json:"error"`
+					Links []errHTTPLink `json:"links"`
 				}{
 					Error: e.external,
 					Links: e.links,
@@ -786,10 +794,28 @@ func membersNewHandler(r *http.Request) (interface{}, error) {
 		comment:       r.FormValue("comment"),
 	}
 	u := assertSourceID(uuid.NewV4().String())
-	log.Printf("Creating %s in %s", u, gid)
+	log.Printf("Creating member %s in %s", u, gid)
 	return "OK", txWrap(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`INSERT INTO sources(source_id, source, comment) VALUES(?,?,?)`, string(u), data.source, data.sourceComment); err != nil {
-			return err
+			var existing string
+			if e := tx.QueryRow(`SELECT source_id FROM sources WHERE source=?`, data.source).Scan(&existing); e != nil {
+				return errHTTP{
+					internal: fmt.Errorf("first %q, then %q", err, e),
+					external: "failed to insert source",
+					code:     http.StatusInternalServerError,
+				}
+			}
+			return errHTTP{
+				internal: nil,
+				external: fmt.Sprintf("refusing to create duplicate of source %s", existing),
+				links: []errHTTPLink{
+					{
+						Text: "existing source",
+						Link: "/source/" + existing,
+					},
+				},
+				code: http.StatusConflict,
+			}
 		}
 		if _, err := tx.Exec(`INSERT INTO members(group_id, source_id, comment) VALUES(?,?,?)`, string(gid), string(u), data.comment); err != nil {
 			return err
@@ -895,8 +921,8 @@ func ruleHandler(r *http.Request) (template.HTML, error) {
 SELECT acls.acl_id,acls.comment
 FROM aclrules
 JOIN acls ON aclrules.acl_id=acls.acl_id
-WHERE rule_id='2562e452-02a4-4de5-9837-ae5b4bdb699b'
-ORDER BY acls.comment`)
+WHERE aclrules.rule_id=?
+ORDER BY acls.comment`, string(current))
 	if err != nil {
 		return "", err
 	}
