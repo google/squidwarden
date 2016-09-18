@@ -11,6 +11,10 @@ $(document).ready(function() {
 	if (e.keyCode != 13) { return; }
 	newGroup($(this).val());
     });
+    $("#action-delete-group").click(function() {
+	var group_id = $("#group-delete-selection").val();
+	doDelete("/group/" + group_id, {}, function(){window.location.reload();});
+    });
     $("#action-save").click(btnSave);
     $("#action-new").click(btnCreate);
     $(".action-delete").click(btnDelete);

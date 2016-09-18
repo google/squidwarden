@@ -615,7 +615,7 @@ func assertSourceID(s string) sourceID { return sourceID(assertUUID(s)) }
 
 func sourceDeleteHandler(r *http.Request) (interface{}, error) {
 	sid := assertSourceID(mux.Vars(r)["sourceID"])
-	log.Printf("Deleting %s", sid)
+	log.Printf("Deleting source %s", sid)
 	return "OK", txWrap(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`DELETE FROM sources WHERE source_id=?`, string(sid)); err != nil {
 			r := tx.QueryRow(`SELECT COUNT(*) FROM members WHERE source_id=?`, string(sid))
@@ -627,6 +627,47 @@ func sourceDeleteHandler(r *http.Request) (interface{}, error) {
 			return errHTTP{
 				external: fmt.Sprintf("source still used by %d groups", n),
 				code:     http.StatusBadRequest,
+			}
+		}
+		return nil
+	})
+}
+
+func groupDeleteHandler(r *http.Request) (interface{}, error) {
+	id := assertGroupID(mux.Vars(r)["groupID"])
+	log.Printf("Deleting group %s", id)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM groups WHERE group_id=?`, string(id)); err != nil {
+			// Any group members left?
+			r := tx.QueryRow(`SELECT COUNT(*) FROM members WHERE group_id=?`, string(id))
+			var n uint64
+			if e := r.Scan(&n); e != nil {
+				log.Printf("Failed to find member count: %v", e)
+				return err
+			}
+			if n > 0 {
+				return errHTTP{
+					external: fmt.Sprintf("group still used by %d sources", n),
+					code:     http.StatusBadRequest,
+				}
+			}
+			// Any group accesses left?
+			r = tx.QueryRow(`SELECT COUNT(*) FROM groupaccess WHERE group_id=?`, string(id))
+			if e := r.Scan(&n); e != nil {
+				log.Printf("Failed to find groupaccess count: %v", e)
+				return err
+			}
+			if n > 0 {
+				return errHTTP{
+					external: fmt.Sprintf("group still granted access to %d acls", n),
+					code:     http.StatusBadRequest,
+				}
+			}
+			// No? Then I'm out of ideas.
+			return errHTTP{
+				internal: err,
+				external: "can't delete group",
+				code:     http.StatusInternalServerError,
 			}
 		}
 		return nil
@@ -974,6 +1015,7 @@ func main() {
 	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
 	r.HandleFunc("/source/{sourceID}", errWrapJSON(sourceDeleteHandler)).Methods("DELETE")
 	r.HandleFunc("/group/new", errWrapJSON(groupNewHandler)).Methods("POST")
+	r.HandleFunc("/group/{groupID}", errWrapJSON(groupDeleteHandler)).Methods("DELETE")
 
 	fs := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))

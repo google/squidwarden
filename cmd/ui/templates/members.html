@@ -14,6 +14,15 @@ New Group:
 <input type="text" id="action-new-group" />
 
 <br/>
+<select id="group-delete-selection">
+  <option value="">[no group selected]</option>
+  {{range .Groups}}
+  <option value="{{.GroupID}}">{{.Comment}}</option>
+  {{end}}
+</select>
+<button id="action-delete-group">Delete group</button>
+
+<br/>
 {{if .Current.GroupID}}
 <button id="action-save" disabled>Save</button>
 
