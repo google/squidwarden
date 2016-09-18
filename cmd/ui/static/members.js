@@ -8,6 +8,7 @@ $(document).ready(function() {
     $(".members-source-checked,.members-comment").change(changeAnything);
     $(".members-comment").keydown(changeAnything);
     $("#action-save").click(btnSave);
+    $("#action-new").click(btnCreate);
 });
 
 function loading(b) {
@@ -20,6 +21,18 @@ function loading(b) {
 
 function changeAnything() {
     $("#action-save").prop("disabled", "");
+}
+
+function btnCreate() {
+    var group_id = $("#members-group-selection").val();
+    doPost("/members/"+group_id+"/new", {
+	"source": $("#new-member-addr").val(),
+	"source-comment": $("#new-member-source").val(),
+	"comment": $("#new-member-comment").val(),
+    }, function() {
+	console.log("Success!");
+	window.location.reload();
+    });
 }
 
 function btnSave() {
@@ -50,10 +63,11 @@ function doPost(url, data, success, fail) {
     $.post(url, data)
 	.done(function() {
 	    loading(false);
-	    success();
+	    if (success != undefined) { success(); }
 	})
 	.fail(function(o, text, error) {
+	    console.log("POST failed");
 	    loading(false);
-	    fail(o, text, error);
+	    if (fail != undefined) { fail(o, text, error); }
 	});
 }

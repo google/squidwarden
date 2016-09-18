@@ -13,6 +13,7 @@ Go to group:
 {{if .Current.GroupID}}
 <button id="action-save" disabled>Save</button>
 
+
 <table class="standard">
   <thead>
     <tr>
@@ -25,6 +26,15 @@ Go to group:
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <td></td>
+      <td class="min"><input type="checkbox" disabled checked /></td>
+      <td>New</td>
+      <td><input type="text" id="new-member-addr" /></td>
+      <td><input type="text" id="new-member-source" /></td>
+      <td><input type="text" id="new-member-comment" /></td>
+      <td><button id="action-new">Create</button></td>
+    </tr>
     {{range .Sources}}
     <tr>
       <td></td>

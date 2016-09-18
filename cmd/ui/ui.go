@@ -526,7 +526,32 @@ func assertUUID(s string) string {
 	return s
 }
 
-func assertGroupID(s string) groupID { return groupID(assertUUID(s)) }
+func assertGroupID(s string) groupID   { return groupID(assertUUID(s)) }
+func assertSourceID(s string) sourceID { return sourceID(assertUUID(s)) }
+
+func membersNewHandler(r *http.Request) (interface{}, error) {
+	gid := assertGroupID(mux.Vars(r)["groupID"])
+	r.ParseForm()
+	data := struct {
+		source        string
+		sourceComment string
+		comment       string
+	}{
+		source:        r.FormValue("source"),
+		sourceComment: r.FormValue("source-comment"),
+		comment:       r.FormValue("comment"),
+	}
+	u := assertSourceID(uuid.NewV4().String())
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`INSERT INTO sources(source_id, source, comment) VALUES(?,?,?)`, string(u), data.source, data.sourceComment); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO members(group_id, source_id, comment) VALUES(?,?,?)`, string(gid), string(u), data.comment); err != nil {
+			return err
+		}
+		return nil
+	})
+}
 
 func membersmembersHandler(r *http.Request) (interface{}, error) {
 	r.ParseForm()
@@ -783,6 +808,7 @@ func main() {
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 	r.HandleFunc("/members/", errWrap(membersHandler)).Methods("GET", "HEAD")
 	r.HandleFunc("/members/{groupID}", errWrap(membersHandler)).Methods("GET", "HEAD")
+	r.HandleFunc("/members/{groupID}/new", errWrapJSON(membersNewHandler)).Methods("POST")
 	r.HandleFunc("/members/{groupID}/members", errWrapJSON(membersmembersHandler)).Methods("POST")
 	r.HandleFunc("/rule/delete", errWrapJSON(ruleDeleteHandler)).Methods("POST")
 	r.HandleFunc("/rule/{ruleID}", errWrapJSON(ruleEditHandler)).Methods("POST")
