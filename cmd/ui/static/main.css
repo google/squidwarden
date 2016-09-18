@@ -17,6 +17,10 @@ ul.buttons li {
     position: relative;
     display: inline-block;
 }
+/* only used if websockets can't be used */
+#refresh-tail {
+    display: none;
+}
 .tooltip {
     visibility: hidden;
     white-space: normal;
@@ -40,4 +44,8 @@ ul.buttons li:hover button {
 td.latest-path {
 /*    max-width: 10em; */
     overflow: auto;
+}
+#initial-loading {
+    width: 100%;
+    text-align: center;
 }

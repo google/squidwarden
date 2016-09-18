@@ -1,10 +1,12 @@
 $(document).ready(function() {
     if (window.WebSocket && $("#websockets").val() == "true") {
 	$("button#refresh-tail").css("display", "none");
+	$("button#pause-scroll").css("display", "inline-block");
 	$("button#pause-scroll").click(pauseScroll);
 	streamTail();
     } else {
 	$("button#pause-scroll").css("display", "none");
+	$("button#refresh-tail").css("display", "inline-block");
 	$("button#refresh-tail").click(refreshTail);
 	refreshTail();
     }
@@ -22,18 +24,23 @@ function openWebsocket(path) {
 var wsTail;
 function streamTail() {
     wsTail = openWebsocket("/ajax/tail-log/stream");
-    wsTail.onopen = function(){console.log("Tail log open")}
+    wsTail.onopen = function() {
+	console.log("Tail log open");
+	$("#latest tbody").html("");
+    }
     wsTail.onclose = function(ev){
 	console.log("websocket closed with code " + ev.code + ", reopening...");
 	streamTail();
     }
     wsTail.onerror = function(ev){
-	error("Error streaming tail log. Will re-attempt");
+	console.log("Error streaming tail log. Will re-attempt");
+	$("#initial-loading").css("display", "block");
     }
     wsTail.onmessage = function(evt) {
 	var data = JSON.parse(evt.data);
 	var l = $("#latest tbody");
 	l.prepend(tailLogRow(data));
+	$("#initial-loading").css("display", "none");
     }
 }
 
