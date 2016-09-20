@@ -1327,7 +1327,6 @@ type cspAdder struct{ h http.Handler }
 func (c cspAdder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	safe := []string{
 		"'self'",
-		"https://code.jquery.com",
 	}
 	// Websockets can't match on 'self'. :-(
 	w.Header().Set("Content-Security-Policy",
