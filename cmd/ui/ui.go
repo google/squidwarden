@@ -1184,6 +1184,9 @@ func parseLogEntry(l string) (*logEntry, error) {
 	if ur, err := url.Parse(u); strings.Contains(u, "/") && err == nil && ur.Scheme != "" {
 		host = ur.Host
 		p = ur.Path
+		if ur.ForceQuery || ur.RawQuery != "" {
+			p += "?" + ur.RawQuery
+		}
 	} else {
 		host, _, err = net.SplitHostPort(u)
 		if err != nil {
