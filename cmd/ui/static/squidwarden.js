@@ -71,6 +71,7 @@ function ajaxError(o, text, error) {
 	msg = "unknown error type for readyState " + o.readyState;
     }
     if (links.length > 0) {
+	$("#error-window-links-header").css("display", "block");
 	var o = $("#error-window-links");
 	o.html("");
 	for (var i = 0; i < links.length; i++) {
@@ -81,6 +82,8 @@ function ajaxError(o, text, error) {
 	    li.append(a);
 	    o.append(li);
 	}
+    } else {
+	$("#error-window-links-header").css("display", "none");
     }
     $("#error-window-title").text(title);
     $("#error-window-body").text(msg);
