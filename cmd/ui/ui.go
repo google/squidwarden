@@ -36,6 +36,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	texttemplate "text/template"
 	"time"
 
 	"github.com/gorilla/csrf"
@@ -63,14 +64,15 @@ const (
 )
 
 var (
-	templates  = flag.String("templates", "templates", "Template dir")
-	staticDir  = flag.String("static", "static", "Static dir")
-	addr       = flag.String("addr", ":8080", "Address to listen to.")
-	socketPath = flag.String("fcgi", "", "UNIX socket to listen to.")
-	squidLog   = flag.String("squidlog", "", "Path to squid log.")
-	dbFile     = flag.String("db", "", "sqlite database.")
-	httpsOnly  = flag.Bool("https_only", true, "Only work with HTTPS.")
-	websockets = flag.Bool("websockets", true, "Enable websockets (-fcgi turns them off).")
+	templates     = flag.String("templates", "templates", "Template dir")
+	staticDir     = flag.String("static", "static", "Static dir")
+	addr          = flag.String("addr", ":8080", "Address to listen to.")
+	socketPath    = flag.String("fcgi", "", "UNIX socket to listen to.")
+	squidLog      = flag.String("squidlog", "", "Path to squid log.")
+	dbFile        = flag.String("db", "", "sqlite database.")
+	httpsOnly     = flag.Bool("https_only", true, "Only work with HTTPS.")
+	websockets    = flag.Bool("websockets", true, "Enable websockets (-fcgi turns them off).")
+	proxyHostPort = flag.String("proxy", "", "Host:port to proxy.")
 
 	db *sql.DB
 )
@@ -124,6 +126,18 @@ func getTemplate(fn string, fm template.FuncMap) *template.Template {
 	return template.Must(tmpl.Parse(string(b)))
 }
 
+func getTextTemplate(fn string, fm texttemplate.FuncMap) *texttemplate.Template {
+	b, err := readFile(path.Join(*templates, fn))
+	if err != nil {
+		panic(err)
+	}
+	tmpl := texttemplate.New(fn)
+	if fm != nil {
+		tmpl.Funcs(fm)
+	}
+	return texttemplate.Must(tmpl.Parse(string(b)))
+}
+
 func rootHandler(r *http.Request) (template.HTML, error) {
 	tmpl := getTemplate("main.html", nil)
 	var buf bytes.Buffer
@@ -131,6 +145,18 @@ func rootHandler(r *http.Request) (template.HTML, error) {
 		return "", fmt.Errorf("template execute fail: %v", err)
 	}
 	return template.HTML(buf.String()), nil
+}
+
+func pacHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/x-javascript-config")
+	tmpl := getTextTemplate("pac.js", nil)
+	if err := tmpl.Execute(w, &struct {
+		Proxy string
+	}{
+		Proxy: *proxyHostPort,
+	}); err != nil {
+		log.Printf("template execute fail: %v", err)
+	}
 }
 
 func aboutHandler(r *http.Request) (template.HTML, error) {
@@ -1286,7 +1312,7 @@ func makeRouter() *mux.Router {
 	r.HandleFunc("/ajax/tail-log/stream", tailHandler)
 
 	rget.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(&myDir{*staticDir})))
-
+	rget.HandleFunc("/proxy.pac", pacHandler)
 	pg := "{groupID:" + u + "}"
 	pa := "{aclID:" + u + "}"
 	pr := "{ruleID:" + u + "}"
@@ -1397,8 +1423,6 @@ func main() {
 
 		// Add CSP.
 		h = &cspAdder{h}
-
-		http.Handle("/", h)
 	}
 
 	log.Printf("Running...")
@@ -1413,5 +1437,5 @@ func main() {
 	}
 
 	// Start normal port.
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	log.Fatal(http.ListenAndServe(*addr, h))
 }
