@@ -7,14 +7,27 @@ $(document).ready(function() {
     });
 
     $("body").keypress(keypressHandler);
+
+    // New ACL.
     $("#new-acl").keydown(function(e) {
 	if (e.keyCode != 13) { return; }
 	newACL($(this).val());
     });
+
+    // Delete ACL.
     $("#delete-acl").click(function() {
 	var acl_id = $("#current-acl").val();
 	doDelete("/acl/" + acl_id, {}, function(){
 	    window.location.href = "/acl/";
+	});
+    });
+
+    // Rename ACL.
+    $("#rename-acl").click(function() {
+	var acl_id = $("#current-acl").val();
+	var new_name = $("#rename-name").val();
+	doPost("/acl/" + acl_id, {"comment": new_name}, function(){
+	    window.location.reload();
 	});
     });
 

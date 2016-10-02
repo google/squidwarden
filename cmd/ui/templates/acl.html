@@ -19,6 +19,8 @@ New ACL:
 
 {{if .Current.ACLID}}
 <h2>ACL: {{.Current.Comment}}</h2>
+<input type="text" id="rename-name" value="{{.Current.Comment}}" /><button id="rename-acl">Change comment</button>
+<br/>
 <button id="delete-acl">Delete ACL</button>
 
 <h3>Rules</h3>

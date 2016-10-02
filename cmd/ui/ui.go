@@ -819,6 +819,22 @@ func aclDeleteHandler(r *http.Request) (interface{}, error) {
 	})
 }
 
+func aclUpdateHandler(r *http.Request) (interface{}, error) {
+	id := assertSourceID(mux.Vars(r)["aclID"])
+	comment := r.FormValue("comment")
+	if len(comment) == 0 {
+		return nil, errHTTP{external: "comment may not be empty", code: http.StatusBadRequest}
+	}
+	log.Printf("Updating ACL %s", id)
+	return "OK", txWrap(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`UPDATE acls SET comment=? WHERE acl_id=?`, comment, string(id)); err != nil {
+			log.Printf("Failed to update comment for %v: %v", id, err)
+			return err
+		}
+		return nil
+	})
+}
+
 func membersNewHandler(r *http.Request) (interface{}, error) {
 	gid := assertGroupID(mux.Vars(r)["groupID"])
 	r.ParseForm()
@@ -1293,6 +1309,7 @@ func makeRouter() *mux.Router {
 		{path.Join("/acl") + "/", false, rget, aclHandler},
 		{path.Join("/acl/", pa), false, rget, aclHandler},
 		{path.Join("/acl/", pa), true, rdelete, aclDeleteHandler},
+		{path.Join("/acl/", pa), true, rpost, aclUpdateHandler},
 		{path.Join("/acl/move"), true, rpost, aclMoveHandler},
 		{path.Join("/acl/new"), true, rpost, aclNewHandler},
 
