@@ -74,6 +74,7 @@ var (
 	websockets    = flag.Bool("websockets", true, "Enable websockets (-fcgi turns them off).")
 	proxyHostPort = flag.String("proxy", "", "Host:port to proxy.")
 	hsts          = flag.Duration("hsts_ttl", 0, "HSTS TTL. If 0 don't set header.")
+	wsSelf        = flag.String("csp_ws", "", "ws/wss URL to allow for CSP. 'self' is implied.")
 
 	db *sql.DB
 )
@@ -1369,14 +1370,12 @@ func makeRouter() *mux.Router {
 type cspAdder struct{ h http.Handler }
 
 func (c cspAdder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	safe := []string{
-		"'self'",
-	}
 	// Websockets can't match on 'self'. :-(
-	w.Header().Set("Content-Security-Policy",
-		fmt.Sprintf("default-src 'self'; script-src %s; connect-src 'self' ws: wss:",
-			strings.Join(safe, " "),
-		))
+	ws := "'self' ws: wss:"
+	if *wsSelf != "" {
+		ws = "'self' " + *wsSelf
+	}
+	w.Header().Set("Content-Security-Policy", fmt.Sprintf("default-src 'self'; connect-src %s", ws))
 	c.h.ServeHTTP(w, r)
 }
 
