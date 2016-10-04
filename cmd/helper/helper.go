@@ -98,6 +98,15 @@ func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 		return true, nil
 	}
 
+	// If rule is CIDR, allow those.
+	if _, cidr, err := net.ParseCIDR(d.value); err == nil {
+		if ip := net.ParseIP(p.Host); ip != nil {
+			if cidr.Contains(ip) {
+				return true, nil
+			}
+		}
+	}
+
 	// If rule doesn't have port, skip checking the port.
 	if host, _, _ := net.SplitHostPort(p.Host); host == d.value {
 		return true, nil
@@ -163,6 +172,15 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	// Exact hostname.
 	if host == dhost {
 		return true, nil
+	}
+
+	// If rule is CIDR, allow those.
+	if _, cidr, err := net.ParseCIDR(d.value); err == nil {
+		if ip := net.ParseIP(host); ip != nil {
+			if cidr.Contains(ip) {
+				return true, nil
+			}
+		}
 	}
 
 	// Domain suffix.

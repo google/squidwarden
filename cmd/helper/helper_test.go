@@ -79,6 +79,12 @@ func TestDecisions(t *testing.T) {
 		{"HTTP", "128.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.co.uk/", false, false},
 
+		// CIDR
+		{"HTTP", "127.0.0.1", "GET", "http://9.1.2.3/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://9.2.2.3/blah", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "9.2.2.3:443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "9.1.2.3:443", false, false},
+
 		// domain for literals. Domain with missing port means any port.
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4/path/blah", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:80/path/blah", false, true},

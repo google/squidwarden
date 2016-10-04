@@ -17,6 +17,8 @@ INSERT INTO rules(rule_id, type, value, action) VALUES('ru4', 'https-domain', '.
 INSERT INTO rules(rule_id, type, value, action) VALUES('ru5', 'https-domain', 'github.com', 'allow');
 INSERT INTO rules(rule_id, type, value, action) VALUES('ru6', 'domain', '1.2.3.4', 'allow');
 INSERT INTO rules(rule_id, type, value, action) VALUES('ru7', 'domain', '1.2.3.5:8080', 'allow');
+INSERT INTO rules(rule_id, type, value, action) VALUES('ru8', 'domain', '9.1.2.0/24', 'allow');
+INSERT INTO rules(rule_id, type, value, action) VALUES('ru9', 'https-domain', '9.2.2.0/24', 'allow');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru1');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru2');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru3');
@@ -24,4 +26,6 @@ INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru4');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru5');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru6');
 INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru7');
+INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru8');
+INSERT INTO aclrules(acl_id, rule_id) VALUES('sfw', 'ru9');
 INSERT INTO groupaccess(group_id, acl_id) VALUES('friends', 'sfw');
