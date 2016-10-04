@@ -81,6 +81,15 @@ type DomainRule struct {
 	value string
 }
 
+func splitHostPortDefault(s, def string) (string, string) {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil {
+		host = s
+		port = def
+	}
+	return host, port
+}
+
 func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if proto != "HTTP" {
 		return false, nil
@@ -93,28 +102,37 @@ func (d *DomainRule) Check(proto, src, method, uri string) (bool, error) {
 		return false, err
 	}
 
-	// Exact hostname, meaning port matched too.
-	if p.Host == d.value {
+	// If query doesn't have port, assume port 80.
+	ruleHost, rulePort := splitHostPortDefault(d.value, "80")
+	hostOnly, portOnly := splitHostPortDefault(p.Host, "80")
+
+	if portOnly != rulePort && rulePort != "*" {
+		return false, nil
+	}
+
+	// Exact match.
+	if hostOnly == ruleHost {
 		return true, nil
 	}
 
-	// If rule is CIDR, allow those.
-	if _, cidr, err := net.ParseCIDR(d.value); err == nil {
-		if ip := net.ParseIP(p.Host); ip != nil {
+	// If rule is CIDR, allow anything in it.
+	if _, cidr, err := net.ParseCIDR(ruleHost); err == nil {
+		if ip := net.ParseIP(hostOnly); ip != nil {
 			if cidr.Contains(ip) {
 				return true, nil
 			}
 		}
 	}
 
-	// If rule doesn't have port, skip checking the port.
-	if host, _, _ := net.SplitHostPort(p.Host); host == d.value {
-		return true, nil
-	}
-
 	// Domain suffix.
-	if d.value[0] == '.' && ("."+p.Host == d.value || strings.HasSuffix(p.Host, d.value)) {
-		return true, nil
+	if strings.HasPrefix(d.value, ".") {
+		// No extra level.
+		if "."+hostOnly == ruleHost {
+			return true, nil
+		}
+		if strings.HasSuffix(hostOnly, ruleHost) {
+			return true, nil
+		}
 	}
 	return false, nil
 }
@@ -155,10 +173,7 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if method != "CONNECT" {
 		return false, nil
 	}
-	dhost, dport, err := net.SplitHostPort(d.value)
-	if err != nil {
-		dhost, dport = d.value, "443"
-	}
+	dhost, dport := splitHostPortDefault(d.value, "443")
 	if dhost == "" {
 		return false, nil
 	}
@@ -166,7 +181,7 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to parse HTTPS host:port %q: %v", uri, err)
 	}
-	if port != dport {
+	if port != dport && dport != "*" {
 		return false, nil
 	}
 	// Exact hostname.
@@ -175,7 +190,7 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	}
 
 	// If rule is CIDR, allow those.
-	if _, cidr, err := net.ParseCIDR(d.value); err == nil {
+	if _, cidr, err := net.ParseCIDR(dhost); err == nil {
 		if ip := net.ParseIP(host); ip != nil {
 			if cidr.Contains(ip) {
 				return true, nil
@@ -184,8 +199,14 @@ func (d *HTTPSDomainRule) Check(proto, src, method, uri string) (bool, error) {
 	}
 
 	// Domain suffix.
-	if dhost[0] == '.' && ("."+host == dhost || strings.HasSuffix(host, dhost)) {
-		return true, nil
+	if strings.HasPrefix(d.value, ".") {
+		// No extra level.
+		if "."+host == dhost {
+			return true, nil
+		}
+		if strings.HasSuffix(host, dhost) {
+			return true, nil
+		}
 	}
 	return false, nil
 }

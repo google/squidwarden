@@ -76,19 +76,32 @@ func TestDecisions(t *testing.T) {
 	}{
 		// domain
 		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.se:8080/", false, false},
 		{"HTTP", "128.0.0.1", "GET", "http://www.unencrypted.habets.se/", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://www.unencrypted.habets.co.uk/", false, false},
 
 		// CIDR
 		{"HTTP", "127.0.0.1", "GET", "http://9.1.2.3/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://9.1.2.3:8080/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://9.1.2.3:8081/blah", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://9.2.2.3/blah", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "9.2.2.3:443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "9.2.2.3:8443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "9.2.2.3:9443", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "9.1.2.3:443", false, false},
 
-		// domain for literals. Domain with missing port means any port.
+		// Wildcard port.
+		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1:80/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1:8080/blah", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:443", false, true},
+		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:8443", false, true},
+
+		// domain for literals. Domain with missing port means port 80.
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4/path/blah", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:80/path/blah", false, true},
-		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:1234/path/blah", false, true},
+		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:8080/path/blah", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5/path/blah", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5:80/path/blah", false, false},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.5:8080/path/blah", false, true},
