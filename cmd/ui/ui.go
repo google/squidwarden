@@ -73,6 +73,7 @@ var (
 	httpsOnly     = flag.Bool("https_only", true, "Only work with HTTPS.")
 	websockets    = flag.Bool("websockets", true, "Enable websockets (-fcgi turns them off).")
 	proxyHostPort = flag.String("proxy", "", "Host:port to proxy.")
+	hsts          = flag.Duration("hsts_ttl", 0, "HSTS TTL. If 0 don't set header.")
 
 	db *sql.DB
 )
@@ -1379,6 +1380,13 @@ func (c cspAdder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.h.ServeHTTP(w, r)
 }
 
+type hstsAdder struct{ h http.Handler }
+
+func (c hstsAdder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Strict-Transport-Security", fmt.Sprintf("max-age=%d", int(hsts.Seconds())))
+	c.h.ServeHTTP(w, r)
+}
+
 func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -1421,8 +1429,11 @@ func main() {
 			csrf.Path("/"),
 			csrf.ErrorHandler(csrfFail{}))(r)
 
-		// Add CSP.
+		// Add extra headers.
 		h = &cspAdder{h}
+		if *hsts > 0 {
+			h = &hstsAdder{h}
+		}
 	}
 
 	log.Printf("Running...")
