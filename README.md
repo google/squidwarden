@@ -52,24 +52,6 @@ $ sudo -u proxy ./bin/ui \
 
 Then point browser to [the UI](http://localhost:8081/) and get started.
 
-### Set up auth
-
-```
-$ echo -n 'admin:' | sudo tee of=/etc/nginx/htpasswd
-$ openssl passwd -apr1 | sudo tee -a /etc/nginx/htpasswd
-Password:
-Verifying - Password:
-```
-
-Then add this to `/etc/nginx/conf.d/squidwarden.conf` inside the
-`location /` section.
-
-```
-        auth_basic "Restricted Content";
-        auth_basic_user_file /etc/nginx/htpasswd;
-```
-
-
 ## Run UI via nginx
 
 It can be a good idea to run through a real web server such as nginx,
@@ -104,6 +86,23 @@ $ sudo -u proxy ./bin/ui \
     -https_only=false \
     -squidlog=/var/log/squid3/proxyacl.blocklog \
     -db=/var/spool/squid3/proxyacl.sqlite
+```
+
+### Set up auth
+
+```
+$ echo -n 'admin:' | sudo tee of=/etc/nginx/htpasswd
+$ openssl passwd -apr1 | sudo tee -a /etc/nginx/htpasswd
+Password:
+Verifying - Password:
+```
+
+Then add this to `/etc/nginx/conf.d/squidwarden.conf` inside the
+`location /` section.
+
+```
+        auth_basic "Restricted Content";
+        auth_basic_user_file /etc/nginx/htpasswd;
 ```
 
 ## Run UI with fastcgi nginx
