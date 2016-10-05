@@ -10,7 +10,19 @@ $(document).ready(function() {
 	$("button#refresh-tail").click(refreshTail);
 	refreshTail();
     }
+    $("#action").change(actionChange);
+    actionChange();
 });
+
+function actionChange() {
+    if ($("#action").val() === "allow") {
+	$(".acl-buttons button").removeClass("acl-button-block");
+	$(".acl-buttons button").addClass("acl-button-allow");
+    } else {
+	$(".acl-buttons button").removeClass("acl-button-allow");
+	$(".acl-buttons button").addClass("acl-button-block");
+    }
+}
 
 function openWebsocket(path) {
     if (window.location.protocol == "http:") {
@@ -41,6 +53,7 @@ function streamTail() {
 	var l = $("#latest tbody");
 	l.prepend(tailLogRow(data));
 	$("#initial-loading").css("display", "none");
+	actionChange();
     }
 }
 
@@ -61,7 +74,7 @@ function tailLogRow(data) {
     td = document.createElement("td");
     td.classList = ["min nostripe"];
     ul = document.createElement("ul");
-    ul.classList = ["buttons"];
+    ul.classList = ["buttons acl-buttons"];
     type = (data.Method == "CONNECT") ? "https-domain" : "domain";
     ul.appendChild(createButtonLI("Domain", {type: type, value: data.Domain}, data.Domain));
     ul.appendChild(createButtonLI("Host", {type: type, value: data.Host}, data.Host));
@@ -119,6 +132,7 @@ function refreshTail() {
         for (var i = 0; i < data.length; i++) {
 	    l.append(tailLogRow(data[i]));
 	}
+	actionChange();
     }).fail(function(o, text, error) {
 	error("Error: " + ajaxError(o, text, error));
     });
