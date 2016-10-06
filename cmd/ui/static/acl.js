@@ -43,7 +43,17 @@ $(document).ready(function() {
     $("#button-save").click(save);
     $("#button-move").click(move);
     $("#button-delete").click(delete_button);
+
+    updateActionColors();
 });
+
+function updateActionColors() {
+    var o = $("select.acl-rules-rule-action option[value='allow']").parent();
+    o.removeClass("acl-button-block");
+    o.removeClass("acl-button-allow");
+    $("select.acl-rules-rule-action option[value='allow']:selected").parent().addClass("acl-button-allow");
+    $("select.acl-rules-rule-action option[value='ignore']:selected").parent().addClass("acl-button-block");
+}
 
 function delete_button() {
     var rules = get_all_checked();
@@ -111,6 +121,7 @@ function ruleTextChanged(me, e) {
 
     // Disable active-changing.
     editing = true;
+    updateActionColors();
 }
 
 function newACL(name) {

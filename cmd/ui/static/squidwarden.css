@@ -98,3 +98,9 @@ td.max {
 #error-window-close {
     margin-top: 1em;
 }
+.acl-button-block {
+    background-color: #f88;
+}
+.acl-button-allow {
+    background-color: #8f8;
+}
