@@ -157,6 +157,20 @@ func (d *RegexRule) Check(proto, src, method, uri string) (bool, error) {
 	return false, nil
 }
 
+type HTTPSRegexRule struct {
+	re *regexp.Regexp
+}
+
+func (d *HTTPSRegexRule) Check(proto, src, method, uri string) (bool, error) {
+	if proto != "NONE" {
+		return false, nil
+	}
+	if d.re.MatchString(uri) {
+		return true, nil
+	}
+	return false, nil
+}
+
 type ExactRule struct {
 	value string
 }
@@ -399,6 +413,12 @@ FROM rules
 					return fmt.Errorf("compiling regex %q: %v", val, err)
 				}
 				r.rule = &RegexRule{re: x}
+			case "https-regex":
+				x, err := regexp.Compile("^" + val + "$")
+				if err != nil {
+					return fmt.Errorf("compiling regex %q: %v", val, err)
+				}
+				r.rule = &HTTPSRegexRule{re: x}
 			default:
 				return fmt.Errorf("unknown rule type %q", typ)
 			}

@@ -59,6 +59,7 @@ const (
 	typeHTTPSDomain = "https-domain"
 	typeExact       = "exact"
 	typeRegex       = "regex"
+	typeHTTPSRegex  = "https-regex"
 
 	saneTime = "2006-01-02 15:04:05 MST"
 )
@@ -1108,7 +1109,7 @@ func aclHandler(r *http.Request) (template.HTML, error) {
 		Types   []string
 	}{
 		Actions: []string{actionAllow, actionIgnore},
-		Types:   []string{typeDomain, typeHTTPSDomain, typeRegex, typeExact},
+		Types:   []string{typeDomain, typeHTTPSDomain, typeRegex, typeHTTPSRegex, typeExact},
 	}
 	{
 		rows, err := db.Query(`SELECT acl_id, comment FROM acls ORDER BY comment`)
