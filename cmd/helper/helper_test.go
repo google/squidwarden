@@ -119,6 +119,11 @@ func TestDecisions(t *testing.T) {
 		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:443", false, true},
 		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:8443", false, true},
 
+		// Blocked for local, not for bob.
+		// Even though bob is part of local too.
+		{"NONE", "127.0.0.1", "CONNECT", "9.10.0.1:443", false, true},
+		{"NONE", "127.0.0.2", "CONNECT", "9.10.0.1:443", false, false},
+
 		// domain for literals. Domain with missing port means port 80.
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4/path/blah", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://1.2.3.4:80/path/blah", false, true},
@@ -140,7 +145,10 @@ func TestDecisions(t *testing.T) {
 		{"NONE", "127.0.0.1", "CONNECT", "www.github.com:443", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "github.com:443", false, true},
 	} {
-		v, _, err := decide(cfg, test.proto, test.src, test.method, test.uri)
+		v, action, err := decide(cfg, test.proto, test.src, test.method, test.uri)
+		if action == actionIgnore {
+			v = false
+		}
 		if err != nil != test.err {
 			t.Errorf("Want err %v, got %v for %+v", test.err, err, test)
 		} else {

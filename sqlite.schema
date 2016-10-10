@@ -42,7 +42,7 @@ CREATE TABLE rules(
        action TEXT NOT NULL,
        comment TEXT,
        PRIMARY KEY(rule_id),
-       UNIQUE(type, value)
+       UNIQUE(type, value, action)
 );
 
 CREATE TABLE groupaccess(
