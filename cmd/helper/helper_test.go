@@ -64,6 +64,27 @@ func TestMain(m *testing.M) {
 	os.Exit(res)
 }
 
+func TestOrder(t *testing.T) {
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss := []string{
+		"127.0.0.1/32",
+		"127.0.0.0/8",
+		"0.0.0.0/1",
+	}
+
+	if got, want := len(cfg.Sources), len(ss); got != want {
+		t.Fatalf("Got %d sources, want %d", got, want)
+	}
+	for n, s := range ss {
+		if got, want := cfg.Sources[n].source.String(), s; got != want {
+			t.Errorf("Got %dth entry %v, want %v", n, got, want)
+		}
+	}
+}
+
 func TestDecisions(t *testing.T) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -94,7 +115,7 @@ func TestDecisions(t *testing.T) {
 		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1/blah", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1:80/blah", false, true},
 		{"HTTP", "127.0.0.1", "GET", "http://9.9.0.1:8080/blah", false, true},
-		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1", false, false},
+		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1", false, false}, // TODO
 		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:443", false, true},
 		{"NONE", "127.0.0.1", "CONNECT", "9.9.0.1:8443", false, true},
 

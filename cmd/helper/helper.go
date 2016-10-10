@@ -32,6 +32,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -62,9 +63,14 @@ const (
 	aclNoMatch = "ERR"
 )
 
+type sourceRule struct {
+	source *net.IPNet
+	rules  []string
+}
+
 type Config struct {
 	// Map from source to rules.
-	Sources map[string][]string
+	Sources []sourceRule
 	Rules   map[string]RuleAction
 }
 
@@ -222,16 +228,11 @@ func decide(cfg *Config, proto, src, method, uri string) (bool, action, error) {
 	if source == nil {
 		return false, actionNone, fmt.Errorf("source is not a valid address: %q", src)
 	}
-	for a, rules := range cfg.Sources {
-		_, net, err := net.ParseCIDR(a)
-		if err != nil {
-			log.Printf("Not a valid source: %q: %v", a, err)
+	for _, rs := range cfg.Sources {
+		if !rs.source.Contains(source) {
 			continue
 		}
-		if !net.Contains(source) {
-			continue
-		}
-		for _, ruleName := range rules {
+		for _, ruleName := range rs.rules {
 			rule := cfg.Rules[ruleName]
 			t, err := rule.rule.Check(proto, src, method, uri)
 			if err != nil {
@@ -326,8 +327,7 @@ func logBlock(proto, src, method, urip string) error {
 
 func loadConfig() (*Config, error) {
 	cfg := &Config{
-		Sources: make(map[string][]string),
-		Rules:   make(map[string]RuleAction),
+		Rules: make(map[string]RuleAction),
 	}
 	if err := func() error {
 		rows, err := db.Query(`
@@ -338,17 +338,33 @@ JOIN groups ON members.group_id=groups.group_id
 JOIN groupaccess ON groups.group_id=groupaccess.group_id
 JOIN acls ON groupaccess.acl_id=acls.acl_id
 JOIN aclrules ON acls.acl_id=aclrules.acl_id
-JOIN rules ON aclrules.rule_id=rules.rule_id`)
+JOIN rules ON aclrules.rule_id=rules.rule_id
+ORDER BY sources.source`)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
+		var prevSource *net.IPNet
+		var rs []string
 		for rows.Next() {
 			var source, rule string
 			if err := rows.Scan(&source, &rule); err != nil {
 				return err
 			}
-			cfg.Sources[source] = append(cfg.Sources[source], rule)
+			_, s, err := net.ParseCIDR(source)
+			if err != nil {
+				log.Printf("%q is not valid CIDR: %v", source, err)
+				continue
+			}
+			if prevSource != nil && (prevSource.String() != s.String()) {
+				cfg.Sources = append(cfg.Sources, sourceRule{source: prevSource, rules: rs})
+				rs = nil
+			}
+			prevSource = s
+			rs = append(rs, rule)
+		}
+		if prevSource != nil {
+			cfg.Sources = append(cfg.Sources, sourceRule{source: prevSource, rules: rs})
 		}
 		return rows.Err()
 	}(); err != nil {
@@ -392,7 +408,18 @@ FROM rules
 	}(); err != nil {
 		return nil, err
 	}
+	sort.Sort(sort.Reverse(byPrefixLen(cfg.Sources)))
 	return cfg, nil
+}
+
+type byPrefixLen []sourceRule
+
+func (a byPrefixLen) Len() int      { return len(a) }
+func (a byPrefixLen) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byPrefixLen) Less(i, j int) bool {
+	x, _ := a[i].source.Mask.Size()
+	y, _ := a[j].source.Mask.Size()
+	return x < y
 }
 
 func openDB() {
