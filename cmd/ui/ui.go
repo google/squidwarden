@@ -1233,8 +1233,9 @@ func parseLogEntry(l string) (*logEntry, error) {
 			p += "?" + ur.RawQuery
 		}
 	} else {
-		host, _, err = net.SplitHostPort(u)
-		if err != nil {
+		var port string
+		host, port, err = net.SplitHostPort(u)
+		if port != "443" {
 			host = u
 		}
 	}
