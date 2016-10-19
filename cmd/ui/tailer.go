@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"golang.org/x/exp/inotify"
 )
 
 var (
@@ -73,19 +73,19 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Tick every time the file changes, or 10s if it doesn't.
 	{
-		w, err := inotify.NewWatcher()
+		w, err := fsnotify.NewWatcher()
 		if err != nil {
 			log.Fatalf("Couldn't create watcher: %v", err)
 		}
 		defer w.Close()
-		if err := w.AddWatch(*squidLog, inotify.IN_MODIFY); err != nil {
+		if err := w.Add(*squidLog); err != nil {
 			log.Fatalf("Couldn't add watcher on %s: %v", *squidLog, err)
 		}
 		go func() {
 			defer close(changeTick)
 			for {
 				select {
-				case _, ok := <-w.Event:
+				case _, ok := <-w.Events:
 					//log.Printf("Event %v!", ok)
 					if !ok {
 						return
