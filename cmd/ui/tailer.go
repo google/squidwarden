@@ -52,9 +52,12 @@ func tailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pos, err := f.Seek(-maxLineLength, 2)
 	if err != nil {
-		log.Printf("File seek failed: %v", err)
-		http.Error(w, "File seek failed", http.StatusInternalServerError)
-		return
+		// Ignore errors since they are probably due to file being shorter than maxLineLength.
+		if false {
+			log.Printf("File seek failed: %v", err)
+			http.Error(w, "File seek failed", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	//log.Printf("Creating websocket...")
