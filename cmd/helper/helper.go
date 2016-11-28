@@ -63,8 +63,53 @@ const (
 	aclNoMatch = "ERR"
 )
 
+type source interface {
+	String() string
+	Contains(net.IP) bool
+	PrefixLen() int
+}
+
+type sourceMask struct {
+	host net.IP
+	mask net.IP
+}
+
+func (s *sourceMask) String() string {
+	return s.host.String() + "/" + s.mask.String()
+}
+
+func (s *sourceMask) Contains(a net.IP) bool {
+	for n := range s.host {
+		if s.host[n] != a[n]&s.mask[n] {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *sourceMask) PrefixLen() int {
+	// This is used for sorting only.
+	// TODO: what should be sorted by?
+	return 0
+}
+
+type sourceNet net.IPNet
+
+func (s *sourceNet) Contains(a net.IP) bool {
+	return (*net.IPNet)(s).Contains(a)
+}
+
+func (s *sourceNet) String() string {
+	return (*net.IPNet)(s).String()
+}
+
+func (s *sourceNet) PrefixLen() int {
+	r, _ := s.Mask.Size()
+	return r
+}
+
 type sourceRule struct {
-	source *net.IPNet
+	source source
 	rules  []string
 }
 
@@ -339,6 +384,23 @@ func logBlock(proto, src, method, urip string) error {
 	return nil
 }
 
+func parseMask(s string) (source, error) {
+	re := regexp.MustCompile(`^([0-9a-fA-F:.]+)/([0-9a-fA-F:.]+)$`)
+	m := re.FindStringSubmatch(s)
+	if m == nil {
+		return nil, fmt.Errorf("not a host match")
+	}
+	a := net.ParseIP(m[1])
+	if a == nil {
+		return nil, fmt.Errorf("not a valid address: %q", m[1])
+	}
+	b := net.ParseIP(m[2])
+	if b == nil {
+		return nil, fmt.Errorf("not a valid address: %q", m[2])
+	}
+	return &sourceMask{host: a, mask: b}, nil
+}
+
 func loadConfig() (*Config, error) {
 	cfg := &Config{
 		Rules: make(map[string]RuleAction),
@@ -358,17 +420,24 @@ ORDER BY sources.source`)
 			return err
 		}
 		defer rows.Close()
-		var prevSource *net.IPNet
+		var prevSource source
 		var rs []string
 		for rows.Next() {
-			var source, rule string
-			if err := rows.Scan(&source, &rule); err != nil {
+			var src, rule string
+			if err := rows.Scan(&src, &rule); err != nil {
 				return err
 			}
-			_, s, err := net.ParseCIDR(source)
-			if err != nil {
-				log.Printf("%q is not valid CIDR: %v", source, err)
-				continue
+			var s source
+			if _, t, err := net.ParseCIDR(src); err != nil {
+				if t, err := parseMask(src); err != nil {
+					log.Printf("%q is not valid CIDR: %v", src, err)
+					continue
+				} else {
+					s = t
+				}
+			} else {
+				t := sourceNet(*t)
+				s = &t
 			}
 			if prevSource != nil && (prevSource.String() != s.String()) {
 				cfg.Sources = append(cfg.Sources, sourceRule{source: prevSource, rules: rs})
@@ -437,9 +506,7 @@ type byPrefixLen []sourceRule
 func (a byPrefixLen) Len() int      { return len(a) }
 func (a byPrefixLen) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byPrefixLen) Less(i, j int) bool {
-	x, _ := a[i].source.Mask.Size()
-	y, _ := a[j].source.Mask.Size()
-	return x < y
+	return a[i].source.PrefixLen() < a[j].source.PrefixLen()
 }
 
 func openDB() {

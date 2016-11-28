@@ -73,6 +73,8 @@ func TestOrder(t *testing.T) {
 		"127.0.0.1/32",
 		"127.0.0.0/8",
 		"0.0.0.0/1",
+		"129.99.0.1/255.255.0.255",
+		"::1234:5678/::ffff:ffff",
 	}
 
 	if got, want := len(cfg.Sources), len(ss); got != want {
@@ -144,6 +146,16 @@ func TestDecisions(t *testing.T) {
 		{"NONE", "127.0.0.1", "CONNECT", "www.port.com:8443", false, true},
 		{"NONE", "127.0.0.1", "CONNECT", "www.github.com:443", false, false},
 		{"NONE", "127.0.0.1", "CONNECT", "github.com:443", false, true},
+
+		// IPv6 mask
+		{"HTTP", "2001:db8::1234:5678", "GET", "http://www.unencrypted.habets.se/", false, true},
+		{"HTTP", "2001:db8::1234:5679", "GET", "http://www.unencrypted.habets.se/", false, false},
+
+		// IPv4 mask
+		{"HTTP", "129.99.0.1", "GET", "http://www.unencrypted.habets.se/", false, true},
+		{"HTTP", "129.99.99.1", "GET", "http://www.unencrypted.habets.se/", false, true},
+		{"HTTP", "129.99.0.2", "GET", "http://www.unencrypted.habets.se/", false, false},
+		{"HTTP", "129.99.99.2", "GET", "http://www.unencrypted.habets.se/", false, false},
 	} {
 		v, action, err := decide(cfg, test.proto, test.src, test.method, test.uri)
 		if action == actionIgnore {
