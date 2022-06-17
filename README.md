@@ -8,7 +8,10 @@ Apache 2.0 license.
 This is NOT a Google product.
 
 Contact: thomas@habets.se / habets@google.com
-https://github.com/google/squidwarden/
+
+## Moved to
+
+https://github.com/ThomasHabets/squidwarden/
 
 ## Install
 
